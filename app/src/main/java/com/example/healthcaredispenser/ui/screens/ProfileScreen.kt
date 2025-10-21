@@ -110,10 +110,21 @@ fun ProfileScreen(
                         ui.profiles.forEach { p ->
                             ProfileAvatarItem(
                                 profile = p,
+                                // ⬇️ === 여기가 유일한 수정 지점입니다! === ⬇️
                                 onClick = {
-                                    // ✅ 아바타 본체 터치 → QR 화면으로 이동
-                                    navController.navigate(Routes.QRSCAN) // ← 프로젝트 라우트에 맞게 바꿔줘
+                                    // ✅ 아바타 본체 터치
+                                    // ❌ 기존: navController.navigate(Routes.QRSCAN)
+
+                                    // ✅ 수정: QR 건너뛰고 홈으로 바로 이동
+                                    val profileId = p.id
+                                    if (profileId != null) {
+                                        // "home/{profileId}" 경로로 이동
+                                        navController.navigate("${Routes.HOME}/$profileId") {
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 },
+                                // ⬆️ ====================================== ⬆️
                                 onDeleteClick = { id ->
                                     confirmDeleteId = id // 다이얼로그 띄우기
                                 }
@@ -174,6 +185,7 @@ fun ProfileScreen(
     }
 }
 
+// ⬇️ === 여기는 원래 코드로 되돌립니다 (navController 없음) === ⬇️
 @Composable
 private fun ProfileAvatarItem(
     profile: ProfileDto,

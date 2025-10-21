@@ -1,20 +1,26 @@
 package com.example.healthcaredispenser.navigation
 
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.healthcaredispenser.ui.auth.AuthViewModel
 import com.example.healthcaredispenser.ui.screens.HabitsScreen
+import com.example.healthcaredispenser.ui.screens.HomeScreen
 import com.example.healthcaredispenser.ui.screens.ProfileAddScreen
 import com.example.healthcaredispenser.ui.screens.ProfileScreen
 import com.example.healthcaredispenser.ui.screens.QRScanScreen
+import com.example.healthcaredispenser.ui.screens.RecordScreen
 import com.example.healthcaredispenser.ui.screens.SignupScreen
 import com.example.healthcaredispenser.ui.screens.WelcomeScreen
+import com.example.healthcaredispenser.ui.screens.ConditionRecordScreen
 
 object Routes {
     const val WELCOME = "welcome"
@@ -22,7 +28,20 @@ object Routes {
     const val PROFILE = "profile"
     const val HABITS  = "habits"       // 프로필 만들기 1단계: 습관 선택(최소 3개)
     const val PROFILE_ADD = "profile_add" // 프로필 만들기 2단계: 기본정보 입력/저장
-    const val QRSCAN  = "qrscan"       // (선택) 필요 없으면 안 써도 됨
+    const val QRSCAN  = "qrscan"
+
+    // ⬇️ === 수정된 부분 === ⬇️
+    const val HOME = "home" // 기존 BottomBar 호환용
+    const val RECORD = "record" // 기존 BottomBar 호환용
+    const val SETTINGS = "settings" // 기존 BottomBar 호환용
+    const val CONDITION_RECORD = "condition_record"
+
+    // profileId를 받는 실제 이동 경로
+    private const val ARG_ID = "profileId"
+    const val HOME_ROUTE = "$HOME/{$ARG_ID}"
+    const val RECORD_ROUTE = "$RECORD/{$ARG_ID}"
+    const val SETTINGS_ROUTE = "$SETTINGS/{$ARG_ID}"
+    // ⬆️ =================== ⬆️
 }
 
 @Composable
@@ -94,6 +113,51 @@ fun AppNavGraph(
                 onCancel = { navController.popBackStack() },
                 onSave   = { navController.popBackStack() }
             )
+        }
+
+        // ⬇️ === 추가된 부분 === ⬇️
+
+        // 7) 홈 화면 (profileId 인자 받음)
+        composable(
+            route = Routes.HOME_ROUTE, // "home/{profileId}"
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val profileId = backStackEntry.arguments?.getLong("profileId") ?: -1L
+
+            if (profileId == -1L) {
+                // 비정상 접근, 프로필 선택으로 복귀
+                navController.popBackStack(Routes.PROFILE, false)
+            } else {
+                HomeScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToRecord = { navController.navigate("${Routes.RECORD}/$profileId") { launchSingleTop = true } },
+                    onNavigateToSettings = { navController.navigate("${Routes.SETTINGS}/$profileId") { launchSingleTop = true } },
+                    profileId = profileId
+                )
+            }
+        }
+
+        // 8) 기록 화면 (BottomBar 탐색용)
+        composable(
+            route = Routes.RECORD_ROUTE, // "record/{profileId}"
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType })
+        ) {
+            // RecordScreen은 profileId를 인자로 받지 않지만, BottomBar를 위해 NavController만 넘김
+            RecordScreen(navController = navController)
+        }
+
+        // 9) 설정 화면 (BottomBar 탐색용)
+        composable(
+            route = Routes.SETTINGS_ROUTE, // "settings/{profileId}"
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType })
+        ) {
+            // TODO: SettingsScreen 구현 필요
+            Text(text = "설정 화면 (Profile ID: ${it.arguments?.getLong("profileId")})")
+        }
+
+        // 10) 컨디션 기록화면
+        composable(Routes.CONDITION_RECORD) {
+            ConditionRecordScreen(navController = navController)
         }
     }
 }

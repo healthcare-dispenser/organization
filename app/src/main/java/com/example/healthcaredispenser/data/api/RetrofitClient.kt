@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     // ✅ EC2 Nginx 프록시: 80 → 8080, 끝에 반드시 /
-    private const val BASE_URL = "http://54.180.94.196/"
+    private const val BASE_URL = "http://13.209.96.224/"
 
     private val logging by lazy {
         HttpLoggingInterceptor().apply {

@@ -12,6 +12,8 @@ class AuthInterceptor : Interceptor {
         val builder = original.newBuilder()
             .header("Accept", "application/json")
 
+        builder.removeHeader("Authorization")
+
         // 로그인/회원가입 요청은 Authorization 헤더 붙이지 않음
         val isAuthEndpoint =
             path.startsWith("/api/accounts/login") ||
