@@ -26,6 +26,7 @@ import com.example.healthcaredispenser.ui.screens.RecordScreen
 import com.example.healthcaredispenser.ui.screens.SettingsScreen
 import com.example.healthcaredispenser.ui.screens.SignupScreen
 import com.example.healthcaredispenser.ui.screens.WelcomeScreen
+import com.example.healthcaredispenser.ui.screens.ConditionHistoryScreen
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
@@ -61,6 +62,8 @@ object Routes {
     const val SETTINGS_ROUTE = "$SETTINGS/{$ARG_ID}"
     const val CONDITION_RECORD = "condition_record"
     const val CONDITION_RECORD_ROUTE = "$CONDITION_RECORD/{$ARG_ID}"
+    const val CONDITION_HISTORY = "condition_history"
+    const val CONDITION_HISTORY_ROUTE = "$CONDITION_HISTORY/{$ARG_ID}"
     // ⬆️ =================== ⬆️
 }
 
@@ -232,6 +235,19 @@ fun AppNavGraph(
                 LaunchedEffect(Unit) { navController.popBackStack() }
             } else {
                 ConditionRecordScreen(navController = navController, profileId = profileId) // 👈 profileId 전달
+            }
+        }
+
+        composable(
+            route = Routes.CONDITION_HISTORY_ROUTE, // "condition_history/{profileId}"
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val profileId = backStackEntry.arguments?.getLong("profileId") ?: -1L
+            if (profileId == -1L) {
+                // 비정상 접근 시 이전 화면 (RecordScreen)으로
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            } else {
+                ConditionHistoryScreen(navController = navController, profileId = profileId)
             }
         }
     }

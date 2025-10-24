@@ -18,14 +18,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner // ⭐️ 추가
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavGraph.Companion.findStartDestination // ⭐️ 추가
+import androidx.lifecycle.Lifecycle // ⭐️ 추가
+import androidx.lifecycle.flowWithLifecycle // ⭐️ 추가
+import androidx.lifecycle.viewmodel.compose.viewModel // ⭐️ 추가
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavController
 import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.components.BottomBar
+import com.example.healthcaredispenser.ui.condition.ConditionNavigationEvent // ⭐️ 추가
+import com.example.healthcaredispenser.ui.condition.ConditionViewModel // ⭐️ 추가
 import com.example.healthcaredispenser.ui.theme.BorderGray
 import com.example.healthcaredispenser.ui.theme.LoginGreen
 import com.example.healthcaredispenser.ui.theme.SignBg
@@ -34,12 +40,41 @@ import com.example.healthcaredispenser.ui.theme.SignBg
 @Composable
 fun ConditionRecordScreen(
     navController: NavController,
-    profileId: Long // ⭐️ 1. profileId 인자 추가
+    profileId: Long,
+    vm: ConditionViewModel = viewModel() // ⭐️ 1. ViewModel 주입
 ) {
-    // ... (상태 관리, 옵션 목록 동일) ...
+    // ⭐️ 2. UI 상태 및 이벤트 수집
+    val uiState by vm.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() } // 에러 메시지 표시용
+
+    // ⭐️ 3. Navigation Event 처리 (뒤로 가기)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(vm.navigationEvent, lifecycleOwner.lifecycle) {
+        vm.navigationEvent.flowWithLifecycle(
+            lifecycleOwner.lifecycle,
+            Lifecycle.State.STARTED
+        ).collect { event ->
+            when (event) {
+                is ConditionNavigationEvent.NavigateBack -> {
+                    navController.popBackStack()
+                }
+            }
+        }
+    }
+
+    // ⭐️ 4. 에러 메시지 표시
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearError() // 스낵바 표시 후 에러 상태 초기화
+        }
+    }
+
+
+    // 상태 관리, 옵션 목록
     var sleepQuality by remember { mutableStateOf(0) }
     var fatigueLevel by remember { mutableStateOf(0) }
-    val canRecord = sleepQuality > 0 && fatigueLevel > 0
+    val canRecord = sleepQuality > 0 && fatigueLevel > 0 && !uiState.isLoading // ⭐️ 로딩 중 아닐 때만 가능
     val sleepOptions = listOf(
         "1 - 매우 나쁨", "2 - 나쁨", "3 - 보통", "4 - 좋음", "5 - 매우 좋음"
     )
@@ -48,9 +83,9 @@ fun ConditionRecordScreen(
     )
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }, // ⭐️ 스낵바 호스트 추가
         containerColor = Color.White,
         topBar = {
-            // ... (뒤로가기 버튼 동일) ...
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -64,9 +99,8 @@ fun ConditionRecordScreen(
             }
         },
         bottomBar = {
-            // ⬇️ === 2. 수정된 부분 (BottomBar onClick) === ⬇️
             BottomBar(
-                currentRoute = Routes.RECORD, // '기록' 탭 활성화 (ConditionRecord는 Record의 하위 단계로 간주)
+                currentRoute = Routes.RECORD,
                 onHomeClick = {
                     navController.navigate("${Routes.HOME}/$profileId") {
                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -75,9 +109,7 @@ fun ConditionRecordScreen(
                     }
                 },
                 onRecordClick = {
-                    // 현재 스택에 RecordScreen이 있다면 거기로 돌아감, 없다면 새로 이동
                     navController.popBackStack(Routes.RECORD_ROUTE.replace("{profileId}", profileId.toString()), inclusive = false)
-                    // 만약 popBackStack이 실패하면 (RecordScreen이 스택에 없으면) navigate
                     if (navController.currentDestination?.route != Routes.RECORD_ROUTE) {
                         navController.navigate("${Routes.RECORD}/$profileId") {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -94,14 +126,13 @@ fun ConditionRecordScreen(
                     }
                 }
             )
-            // ⬆️ ======================================== ⬆️
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()) // ⭐️ 스크롤 가능하게 유지
                 .padding(horizontal = 20.dp),
         ) {
 
@@ -168,10 +199,10 @@ fun ConditionRecordScreen(
             // 기록하기 버튼
             Button(
                 onClick = {
-                    // TODO: 서버로 기록 전송
-                    navController.popBackStack() // 이전 화면(RecordScreen)으로 돌아감
+                    // ✅ ViewModel 함수 호출하여 기록 저장 요청
+                    vm.saveConditionRecord(profileId, sleepQuality, fatigueLevel)
                 },
-                enabled = canRecord,
+                enabled = canRecord, // ⭐️ 로딩 중 아닐 때 활성화
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -181,7 +212,16 @@ fun ConditionRecordScreen(
                     disabledContainerColor = LoginGreen.copy(alpha = 0.4f)
                 )
             ) {
-                Text("기록하기", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                // ⭐️ 로딩 상태 표시
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("기록하기", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                }
             }
 
             Spacer(Modifier.height(24.dp)) // 바텀바 전 여백
@@ -189,9 +229,7 @@ fun ConditionRecordScreen(
     }
 }
 
-/**
- * 라디오 버튼이 있는 옵션 행
- */
+// 라디오 버튼이 있는 옵션 행
 @Composable
 private fun RatingOptionRow(
     text: String,

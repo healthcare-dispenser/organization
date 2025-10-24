@@ -102,7 +102,7 @@ fun RecordScreen(
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
-                    ) { /* TODO */ }
+                    ) { navController.navigate("${Routes.CONDITION_HISTORY}/$profileId") }
                 }
             }
 

@@ -8,6 +8,11 @@ android {
     namespace = "com.example.healthcaredispenser"
     compileSdk = 34
 
+    compileOptions {
+        // API desugaring 활성화 (Java 8+ API 사용 가능하게 함)
+        isCoreLibraryDesugaringEnabled = true
+    }
+
     defaultConfig {
         applicationId = "com.example.healthcaredispenser"
         minSdk = 24
@@ -40,6 +45,9 @@ android {
 }
 
 dependencies {
+    // API desugaring 라이브러리 추가
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4") // 최신 버전 확인 권장
+
     // Compose BOM (버전 한번에 관리)
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
 
