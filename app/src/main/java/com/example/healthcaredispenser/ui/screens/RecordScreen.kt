@@ -115,16 +115,16 @@ fun RecordScreen(
                 rightIconId = R.drawable.more,
                 onRightClick = { /* TODO: 정렬/필터 */ }
             ) {
-                IntakeRow("25/09/15 20:00", "멜라토닌 3mg") { }
-                IntakeRow("25/09/15 14:00", "마그네슘 225mg , 전해질 40mg") { }
-                IntakeRow("25/09/14 20:00", "멜라토닌 3mg") { }
-                IntakeRow("25/09/14 09:00", "아연 6mg") { }
+                IntakeRow("25/09/15 20:00", "멜라토닌 3mg") { navController.navigate("${Routes.INTAKE_HISTORY}/$profileId")}
+                IntakeRow("25/09/15 14:00", "마그네슘 225mg , 전해질 40mg") {navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }
+                IntakeRow("25/09/14 20:00", "멜라토닌 3mg") {navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }
+                IntakeRow("25/09/14 09:00", "아연 6mg") {navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }
 
                 Spacer(Modifier.height(8.dp))
 
                 // 하단 버튼도 동일 스타일
                 OutlinedButton(
-                    onClick = { /* 전체 기록 이동 */ },
+                    onClick = { navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }, // ⬅️ 이동
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()

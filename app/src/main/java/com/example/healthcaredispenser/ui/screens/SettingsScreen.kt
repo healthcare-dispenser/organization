@@ -25,6 +25,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -87,9 +89,11 @@ fun SettingsScreen(
 
             // 1. 프로필 카드
             SettingsCard(
-                icon = Icons.Default.Person,
+                iconPainter = painterResource(id = R.drawable.person),
                 title = "프로필",
-                subtitle = "선택된 생활 습관"
+                subtitle = "선택된 생활 습관" ,
+                iconOffsetY = (-12).dp
+
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -122,9 +126,10 @@ fun SettingsScreen(
 
             // 2. 알림 설정 카드
             SettingsCard(
-                icon = null, // 아이콘 없음
+                iconPainter = painterResource(id = R.drawable.notifications),
                 title = "알림 설정",
-                subtitle = "취침 전, 운동일 알림 설정"
+                subtitle = "취침 전, 운동일 알림 설정",
+                iconOffsetY = (-11).dp
             ) {
                 SettingsButton("알림 시간 설정") {
                     // TODO: 알림 설정 화면으로 이동
@@ -135,7 +140,7 @@ fun SettingsScreen(
 
             // 3. 데이터 관리 카드
             SettingsCard(
-                iconPainter = painterResource(id = R.drawable.graph_6), // RecordScreen 아이콘
+                iconPainter = painterResource(id = R.drawable.bar_chart_4_bars), // RecordScreen 아이콘
                 title = "데이터 관리",
                 subtitle = null
             ) {
@@ -151,9 +156,10 @@ fun SettingsScreen(
 
             // 4. 기기 등록 카드
             SettingsCard(
-                iconPainter = painterResource(id = R.drawable.photo_camera), // QRScanScreen 아이콘
+                iconPainter = painterResource(id = R.drawable.qr_code_scanner), // QRScanScreen 아이콘
                 title = "기기 등록",
-                subtitle = null
+                subtitle = null,
+                iconOffsetY = 1.dp
             ) {
                 SettingsButton("QR코드 스캔하기") {
                     navController.navigate(Routes.QRSCAN)
@@ -188,30 +194,41 @@ fun SettingsScreen(
 
 
 // --- 이 파일 내에서만 사용하는 Helper Composables ---
-
 @Composable
 private fun SettingsCard(
     icon: ImageVector? = null,
     iconPainter: Painter? = null,
     title: String,
     subtitle: String?,
+    iconOffsetY: Dp = 0.dp, // ✅ 추가: 아이콘 y 오프셋
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SignBg)
-            .border(1.dp, BorderGray.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-            .padding(horizontal = 20.dp, vertical = 20.dp)
+            .background(Color(0xFFE8F5E9), RoundedCornerShape(12.dp))
+            .border(1.dp, Color(0xFF6F7783), RoundedCornerShape(12.dp))
+            .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
-                Icon(icon, contentDescription = title, tint = Color.Black)
+                Icon(
+                    icon,
+                    contentDescription = title,
+                    tint = Color.Black,
+                    modifier = Modifier.offset(y = iconOffsetY) // ✅ offset 적용
+                )
                 Spacer(Modifier.width(12.dp))
             }
             if (iconPainter != null) {
-                Icon(iconPainter, contentDescription = title, tint = Color.Black, modifier = Modifier.size(24.dp))
+                Icon(
+                    iconPainter,
+                    contentDescription = title,
+                    tint = Color.Black,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .offset(y = iconOffsetY) // ✅ offset 적용
+                )
                 Spacer(Modifier.width(12.dp))
             }
 
@@ -227,6 +244,7 @@ private fun SettingsCard(
         content()
     }
 }
+
 
 @Composable
 private fun SettingsButton(

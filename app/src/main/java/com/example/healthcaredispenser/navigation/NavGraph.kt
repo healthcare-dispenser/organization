@@ -27,12 +27,12 @@ import com.example.healthcaredispenser.ui.screens.SettingsScreen
 import com.example.healthcaredispenser.ui.screens.SignupScreen
 import com.example.healthcaredispenser.ui.screens.WelcomeScreen
 import com.example.healthcaredispenser.ui.screens.ConditionHistoryScreen
+import com.example.healthcaredispenser.ui.screens.IntakeHistoryScreen
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import android.util.Log
-
 
 object Routes {
     const val WELCOME = "welcome"
@@ -65,6 +65,8 @@ object Routes {
     const val CONDITION_HISTORY = "condition_history"
     const val CONDITION_HISTORY_ROUTE = "$CONDITION_HISTORY/{$ARG_ID}"
     // ⬆️ =================== ⬆️
+    const val INTAKE_HISTORY = "intake_history"
+    const val INTAKE_HISTORY_ROUTE = "$INTAKE_HISTORY/{$ARG_ID}"
 }
 
 @Composable
@@ -255,6 +257,20 @@ fun AppNavGraph(
                 LaunchedEffect(Unit) { navController.popBackStack() }
             } else {
                 ConditionHistoryScreen(navController = navController, profileId = profileId)
+            }
+        }
+        composable(
+            route = Routes.INTAKE_HISTORY_ROUTE, // "intake_history/{profileId}"
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val profileId = backStackEntry.arguments?.getLong("profileId") ?: -1L
+            if (profileId == -1L) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            } else {
+                IntakeHistoryScreen(
+                    navController = navController,
+                    profileId = profileId
+                )
             }
         }
     }

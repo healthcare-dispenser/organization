@@ -21,11 +21,14 @@ import com.example.healthcaredispenser.data.api.RetrofitClient
 import com.example.healthcaredispenser.data.repository.IntakeRepository
 import com.example.healthcaredispenser.ui.home.HomeViewModel
 import com.example.healthcaredispenser.data.auth.DispenserStore
+import com.example.healthcaredispenser.data.auth.TodayGoalStore
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.delay
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+import androidx.compose.animation.core.animateFloatAsState
 
 @Composable
 fun HomeScreen(
@@ -45,23 +48,47 @@ fun HomeScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()   // 🔸 onClick에서 코루틴 사용
+    val scope = rememberCoroutineScope()
 
-    // 저장된 디스펜서 UUID (DataStore)
+    // 디스펜서 UUID
     val dispenserUuid by DispenserStore.flow(context).collectAsState(initial = null)
 
-    // 상태 피드백
-    LaunchedEffect(ui.value.status) {
+    // ⏱ 프로필별 오늘 진행도
+    val goalPair by TodayGoalStore.flow(context, profileId).collectAsState(initial = 0 to "")
+    val goalCount = goalPair.first
+    val goalMax = 2
+    val progress = (goalCount.toFloat() / goalMax.toFloat()).coerceIn(0f, 1f)
+    val animProgress by animateFloatAsState(targetValue = progress, label = "goal-progress")
+
+    // 화면 진입 시 해당 프로필의 날짜 보정
+    LaunchedEffect(profileId) { TodayGoalStore.ensureToday(context, profileId) }
+
+    // API 상태 피드백 + 성공 시 해당 프로필 진행도 증가
+    LaunchedEffect(ui.value.status, profileId) {
         when (ui.value.status) {
             "SUCCESS" -> {
                 snackbarHostState.showSnackbar("배출 완료!")
-                // onNavigateToRecord()
+                TodayGoalStore.increment(context, profileId)
             }
             "FAIL" -> snackbarHostState.showSnackbar("배출 실패. 잠시 후 다시 시도해 주세요.")
         }
     }
     LaunchedEffect(ui.value.error) {
         ui.value.error?.let { snackbarHostState.showSnackbar(it) }
+    }
+
+    // 자정 자동 초기화(해당 프로필만)
+    LaunchedEffect(profileId) {
+        while (true) {
+            val now = LocalDateTime.now()
+            val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay()
+            val millis = ChronoUnit.MILLIS.between(
+                now.atZone(ZoneId.systemDefault()),
+                nextMidnight.atZone(ZoneId.systemDefault())
+            ).coerceAtLeast(1000L)
+            delay(millis)
+            TodayGoalStore.resetForToday(context, profileId)
+        }
     }
 
     Scaffold(
@@ -122,22 +149,30 @@ fun HomeScreen(
                                 tint = Color(0xFF000000)
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("0/3", color = Color(0xFF000000))
+                            Text("${goalCount}/$goalMax", color = Color(0xFF000000))
                         }
                     }
                     Spacer(Modifier.height(8.dp))
+                    // 진행 바 (배경: EAEFE3 / 채움: BED2BF)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(8.dp)
                             .background(Color(0xFFEAEFE3), RoundedCornerShape(4.dp))
-                    )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(animProgress)
+                                .height(8.dp)
+                                .background(Color(0xFFBED2BF), RoundedCornerShape(4.dp))
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // 오늘의 추천 배합 박스
+            // 오늘의 추천 배합 박스 (생략없이 동일)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -174,13 +209,17 @@ fun HomeScreen(
                     onClick = {
                         val uuid = dispenserUuid?.trim().orEmpty()
                         if (uuid.isEmpty()) {
-                            // ⛳️ onClick에서는 LaunchedEffect 쓰면 안 됨!
                             scope.launch { snackbarHostState.showSnackbar("디스펜서를 먼저 등록해 주세요.") }
+                            return@Button
+                        }
+                        // 프로필별 목표 달성 시 더 이상 동작하지 않음
+                        if (goalCount >= goalMax) {
+                            scope.launch { snackbarHostState.showSnackbar("오늘의 목표를 모두 달성했어요!") }
                             return@Button
                         }
                         vm.requestIntake(profileId = profileId, dispenserUuid = uuid)
                     },
-                    enabled = !ui.value.loading,
+                    enabled = !ui.value.loading && goalCount < goalMax,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
