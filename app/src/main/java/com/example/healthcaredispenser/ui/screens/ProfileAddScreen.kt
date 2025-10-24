@@ -50,8 +50,12 @@ private object AddUI {
 @Composable
 fun ProfileAddScreen(
     navController: NavController,
+    profileId: Long = -1L, // ⭐️ 1. profileId 인자 추가 (기본값 -1L)
     vm: ProfileViewModel = viewModel()
 ) {
+    // ⭐️ 2. "수정 모드"인지 확인
+    val isEditMode = profileId != -1L
+
     // 입력값
     var name by rememberSaveable { mutableStateOf("") }
     var age by rememberSaveable { mutableStateOf("") }   // 서버 전송 X, UI만
@@ -79,6 +83,34 @@ fun ProfileAddScreen(
         navController.previousBackStackEntry?.savedStateHandle?.set("chosenHabits", null)
     }
 
+    // ⭐️ 3. 수정 모드일 때, 기존 데이터 불러오기
+    LaunchedEffect(profileId) {
+        if (isEditMode) {
+            // ViewModel에 캐시된 profiles 리스트에서 원본 데이터 찾기
+            val profileToEdit = vm.getProfileById(profileId)
+            if (profileToEdit != null) {
+                name = profileToEdit.name ?: ""
+                height = profileToEdit.height?.toString() ?: ""
+                weight = profileToEdit.weight?.toString() ?: ""
+                gender = if (profileToEdit.gender == "FEMALE") "여성" else "남성"
+
+                // ⭐️ 주의: 'age'는 Dto에 없으므로 불러올 수 없음
+
+                // ⭐️ Habits(tags)는 HabitsScreen에서 새로 받아오므로 여기서 덮어쓰지 않음
+                // ⭐️ (만약 Habits도 기존 값을 불러와야 한다면 로직 추가 필요)
+
+                // ⭐️ Conditions(특이사항) 불러오기
+                profileToEdit.conditions?.let { conds ->
+                    isPregnant = conds.contains("PREGNANT")
+                    hasLiver = conds.contains("LIVER_DISEASE")
+                    hasKidney = conds.contains("KIDNEY_DISEASE")
+                    hasCardio = conds.contains("CARDIOVASCULAR")
+                }
+            }
+        }
+    }
+
+
     val ui by vm.ui.collectAsState()
 
     // 숫자만 입력 허용
@@ -92,10 +124,11 @@ fun ProfileAddScreen(
     val validTags = tags.size >= 3
     val canSave = validRequired && validNumbers && validTags && !ui.saving
 
-    // 저장 성공 → PROFILE로 복귀
+    // 저장 성공 → PROFILE로 복귀 (생성/수정 모두 동일하게 동작)
     LaunchedEffect(ui.saved) {
         if (ui.saved) {
             vm.clearSavedFlag()
+            // ⭐️ 수정이든 생성이든 완료되면 '프로필 목록'으로 돌아감
             navController.popBackStack(Routes.PROFILE, inclusive = false)
         }
     }
@@ -126,6 +159,7 @@ fun ProfileAddScreen(
 
                 Button(
                     onClick = {
+                        // ⭐️ 4. 요청 객체 생성 (동일)
                         val req = CreateProfileRequest(
                             name = name,
                             height = heightNum ?: 0.0,
@@ -139,7 +173,13 @@ fun ProfileAddScreen(
                                 if (hasCardio) add("CARDIOVASCULAR")     // ✅ 서버 enum
                             }
                         )
-                        vm.create(req)
+
+                        // ⭐️ 5. 수정 모드/생성 모드 분기
+                        if (isEditMode) {
+                            vm.update(profileId, req) // 👈 수정
+                        } else {
+                            vm.create(req) // 👈 생성
+                        }
                     },
                     enabled = canSave,
                     modifier = Modifier

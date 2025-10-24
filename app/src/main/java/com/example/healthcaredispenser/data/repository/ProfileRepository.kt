@@ -22,6 +22,12 @@ class ProfileRepository(
             withContext(Dispatchers.IO) { api.create(req) }
         }
 
+    /** ⭐️ 수정: {id, name}만 반환되므로 ProfileItem */
+    suspend fun updateProfile(id: Long, req: CreateProfileRequest): Result<ProfileItem> =
+        runCatching {
+            withContext(Dispatchers.IO) { api.update(id, req) }
+        }
+
     /** 목록: 래퍼 → items 로 변환 */
     suspend fun fetchProfiles(): Result<List<ProfileDto>> =
         runCatching {

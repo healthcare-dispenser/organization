@@ -17,8 +17,8 @@ import java.io.IOException
 data class ProfileUiState(
     val loading: Boolean = false,              // 목록 로딩
     val profiles: List<ProfileDto> = emptyList(),
-    val saving: Boolean = false,               // 생성 중
-    val saved: Boolean = false,                // 생성 성공 플래그
+    val saving: Boolean = false,               // 생성/수정 중
+    val saved: Boolean = false,                // 생성/수정 성공 플래그
     val created: ProfileItem? = null,          // 생성 직후 반환값 {id, name}
     val unauthorized: Boolean = false,         // 401 처리용
     val error: String? = null
@@ -30,6 +30,11 @@ class ProfileViewModel(
 
     private val _ui = MutableStateFlow(ProfileUiState())
     val ui: StateFlow<ProfileUiState> = _ui.asStateFlow()
+
+    /** ⭐️ UI에서 수정할 프로필의 원본 데이터를 찾기 위한 함수 */
+    fun getProfileById(id: Long): ProfileDto? {
+        return _ui.value.profiles.find { it.id == id }
+    }
 
     /** 목록 불러오기 */
     fun fetch() {
@@ -106,6 +111,45 @@ class ProfileViewModel(
                         saving = false,
                         saved = false,
                         created = null,
+                        error = humanReadable(e),
+                        unauthorized = isUnauthorized(e)
+                    )
+                }
+        }
+    }
+
+    /** ⭐️ 프로필 수정 */
+    fun update(
+        id: Long,
+        req: CreateProfileRequest,
+        afterSuccess: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(
+                saving = true,
+                error = null,
+                saved = false,
+                unauthorized = false
+            )
+
+            repo.updateProfile(id, req)
+                .onSuccess { item ->
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        saved = true,
+                        error = null,
+                        unauthorized = false
+                    )
+                    // 2) 수정 성공 시, 목록 전체 갱신
+                    fetch()
+                    // 3) 후처리 콜백(네비게이션 등)
+                    afterSuccess?.invoke()
+                }
+                .onFailure { e ->
+                    Log.e("ProfileViewModel", "update error", e)
+                    _ui.value = _ui.value.copy(
+                        saving = false,
+                        saved = false,
                         error = humanReadable(e),
                         unauthorized = isUnauthorized(e)
                     )

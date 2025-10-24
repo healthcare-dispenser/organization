@@ -63,7 +63,8 @@ private data class HabitItem(
 
 @Composable
 fun HabitsScreen(
-    navController: NavController
+    navController: NavController,
+    profileId: Long = -1L // ⭐️ 1. profileId 인자 추가 (기본값 -1L)
 ) {
     val items = remember {
         listOf(
@@ -103,12 +104,17 @@ fun HabitsScreen(
             ) {
                 Button(
                     onClick = {
+                        // ⬇️ === 2. 수정된 부분 === ⬇️
                         // ✅ 선택 습관(코드) 저장 → 프로필 추가 화면으로 이동
                         val handle = navController.currentBackStackEntry?.savedStateHandle
                         // 기존 값 클리어 후 세팅 (stale 데이터 예방)
                         handle?.set("chosenHabits", null)
                         handle?.set("chosenHabits", ArrayList(chosenCodes))
-                        navController.navigate(Routes.PROFILE_ADD)
+
+                        // ✅ 프로필 추가/수정 화면으로 profileId를 넘겨서 이동
+                        // NavGraph의 "profile_add?profileId={profileId}" 경로 호출
+                        navController.navigate("${Routes.PROFILE_ADD}?profileId=$profileId")
+                        // ⬆️ =================== ⬆️
                     },
                     enabled = canProceed,
                     modifier = Modifier

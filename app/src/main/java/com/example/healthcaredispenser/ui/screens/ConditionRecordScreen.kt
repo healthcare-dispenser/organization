@@ -6,10 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState // ⭐️ 스크롤을 위해 추가
-import androidx.compose.foundation.selection.selectable // ⭐️ 라디오 버튼을 위해 추가
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll // ⭐️ 스크롤을 위해 추가
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -18,10 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role // ⭐️ 라디오 버튼을 위해 추가
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavGraph.Companion.findStartDestination // ⭐️ 추가
 import androidx.navigation.NavController
 import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.components.BottomBar
@@ -32,15 +33,13 @@ import com.example.healthcaredispenser.ui.theme.SignBg
 // 디자인 스펙에 맞춘 컴포저블
 @Composable
 fun ConditionRecordScreen(
-    navController: NavController
+    navController: NavController,
+    profileId: Long // ⭐️ 1. profileId 인자 추가
 ) {
-    // 1. 상태 관리
-    var sleepQuality by remember { mutableStateOf(0) } // 0: 선택 안 함, 1-5: 선택
+    // ... (상태 관리, 옵션 목록 동일) ...
+    var sleepQuality by remember { mutableStateOf(0) }
     var fatigueLevel by remember { mutableStateOf(0) }
-
     val canRecord = sleepQuality > 0 && fatigueLevel > 0
-
-    // 2. 옵션 목록
     val sleepOptions = listOf(
         "1 - 매우 나쁨", "2 - 나쁨", "3 - 보통", "4 - 좋음", "5 - 매우 좋음"
     )
@@ -51,7 +50,7 @@ fun ConditionRecordScreen(
     Scaffold(
         containerColor = Color.White,
         topBar = {
-            // 뒤로가기 버튼
+            // ... (뒤로가기 버튼 동일) ...
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -65,22 +64,45 @@ fun ConditionRecordScreen(
             }
         },
         bottomBar = {
+            // ⬇️ === 2. 수정된 부분 (BottomBar onClick) === ⬇️
             BottomBar(
-                currentRoute = Routes.RECORD, // '기록' 탭 활성화
+                currentRoute = Routes.RECORD, // '기록' 탭 활성화 (ConditionRecord는 Record의 하위 단계로 간주)
                 onHomeClick = {
-                    navController.popBackStack(Routes.PROFILE, false) // 임시
+                    navController.navigate("${Routes.HOME}/$profileId") {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
-                onRecordClick = { /* 현재 화면 */ },
-                onSettingsClick = { /* TODO */ }
+                onRecordClick = {
+                    // 현재 스택에 RecordScreen이 있다면 거기로 돌아감, 없다면 새로 이동
+                    navController.popBackStack(Routes.RECORD_ROUTE.replace("{profileId}", profileId.toString()), inclusive = false)
+                    // 만약 popBackStack이 실패하면 (RecordScreen이 스택에 없으면) navigate
+                    if (navController.currentDestination?.route != Routes.RECORD_ROUTE) {
+                        navController.navigate("${Routes.RECORD}/$profileId") {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                },
+                onSettingsClick = {
+                    navController.navigate("${Routes.SETTINGS}/$profileId") {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
+            // ⬆️ ======================================== ⬆️
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding) // 상단/하단 바 영역 피하기
+                .padding(innerPadding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()) // ⭐️ Column 전체 스크롤 적용
-                .padding(horizontal = 20.dp), // 좌우 여백
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
         ) {
 
             Text(
@@ -89,17 +111,16 @@ fun ConditionRecordScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(Modifier.height(24.dp)) // ⭐️ 원래 간격
+            Spacer(Modifier.height(24.dp))
 
             // 메인 카드
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // .weight(1f) 제거 (스크롤을 위해)
                     .clip(RoundedCornerShape(16.dp))
                     .background(SignBg)
                     .border(1.dp, BorderGray, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 20.dp, vertical = 24.dp) // ⭐️ 원래 간격
+                    .padding(horizontal = 20.dp, vertical = 24.dp)
             ) {
                 // --- 1. 수면의 질 ---
                 Text(
@@ -108,11 +129,11 @@ fun ConditionRecordScreen(
                     fontWeight = FontWeight.SemiBold,
                     color = Color.Black
                 )
-                Spacer(Modifier.height(12.dp)) // ⭐️ 원래 간격
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // ⭐️ 원래 간격
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     sleepOptions.forEachIndexed { index, text ->
                         val optionIndex = index + 1
-                        RatingOptionRow( // ⭐️ 라디오 버튼 버전
+                        RatingOptionRow(
                             text = text,
                             selected = (sleepQuality == optionIndex),
                             onClick = { sleepQuality = optionIndex }
@@ -120,7 +141,7 @@ fun ConditionRecordScreen(
                     }
                 }
 
-                Spacer(Modifier.height(28.dp)) // ⭐️ 원래 간격
+                Spacer(Modifier.height(28.dp))
 
                 // --- 2. 피로도 ---
                 Text(
@@ -129,11 +150,11 @@ fun ConditionRecordScreen(
                     fontWeight = FontWeight.SemiBold,
                     color = Color.Black
                 )
-                Spacer(Modifier.height(12.dp)) // ⭐️ 원래 간격
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { // ⭐️ 원래 간격
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     fatigueOptions.forEachIndexed { index, text ->
                         val optionIndex = index + 1
-                        RatingOptionRow( // ⭐️ 라디오 버튼 버전
+                        RatingOptionRow(
                             text = text,
                             selected = (fatigueLevel == optionIndex),
                             onClick = { fatigueLevel = optionIndex }
@@ -147,7 +168,8 @@ fun ConditionRecordScreen(
             // 기록하기 버튼
             Button(
                 onClick = {
-                    navController.popBackStack()
+                    // TODO: 서버로 기록 전송
+                    navController.popBackStack() // 이전 화면(RecordScreen)으로 돌아감
                 },
                 enabled = canRecord,
                 modifier = Modifier
@@ -168,7 +190,7 @@ fun ConditionRecordScreen(
 }
 
 /**
- * ⭐️ 라디오 버튼이 있는 옵션 행
+ * 라디오 버튼이 있는 옵션 행
  */
 @Composable
 private fun RatingOptionRow(
@@ -184,7 +206,7 @@ private fun RatingOptionRow(
                 onClick = onClick,
                 role = Role.RadioButton
             )
-            .padding(vertical = 4.dp), // ⭐️ 원래 간격
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
@@ -199,7 +221,7 @@ private fun RatingOptionRow(
         Text(
             text = text,
             color = Color.Black,
-            fontSize = 16.sp // ⭐️ 원래 폰트 크기
+            fontSize = 16.sp
         )
     }
 }

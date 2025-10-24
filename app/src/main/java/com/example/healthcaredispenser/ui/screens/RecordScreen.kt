@@ -16,6 +16,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavGraph.Companion.findStartDestination // ⭐️ 추가
 import androidx.navigation.NavHostController
 import com.example.healthcaredispenser.R
 import com.example.healthcaredispenser.navigation.Routes
@@ -27,15 +28,31 @@ private val TextPrimary  = Color(0xFF1A1A1A)
 private val TextSecondary= Color(0xFF6F7783)
 
 @Composable
-fun RecordScreen(navController: NavHostController) {
+fun RecordScreen(
+    navController: NavHostController,
+    profileId: Long // ⭐️ 1. profileId 인자 추가
+) {
     Scaffold(
-        // 홈 화면과 동일: topBar 없이 본문에 헤더 배치
         bottomBar = {
             BottomBar(
                 currentRoute   = Routes.RECORD,
-                onHomeClick    = { navController.navigate(Routes.HOME) { launchSingleTop = true } },
+                // ⬇️ === 2. 수정된 부분 (BottomBar onClick) === ⬇️
+                onHomeClick    = {
+                    navController.navigate("${Routes.HOME}/$profileId") {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
                 onRecordClick  = { /* 이미 기록 */ },
-                onSettingsClick= { navController.navigate(Routes.SETTINGS) { launchSingleTop = true } }
+                onSettingsClick= {
+                    navController.navigate("${Routes.SETTINGS}/$profileId") {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+                // ⬆️ ======================================== ⬆️
             )
         }
     ) { inner ->
@@ -68,13 +85,17 @@ fun RecordScreen(navController: NavHostController) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // 흰 배경 + 검정 글씨 + 6F7783 테두리
+                    // ⬇️ === 3. 수정된 부분 ('기록하기' 버튼 onClick) === ⬇️
                     ActionButtonWhite(
                         text = "기록하기",
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
-                    ) { navController.navigate(Routes.CONDITION_RECORD) }
+                    ) {
+                        // ✅ 수정: ConditionRecordScreen으로 profileId 전달
+                        navController.navigate("${Routes.CONDITION_RECORD}/$profileId")
+                    }
+                    // ⬆️ ============================================= ⬆️
 
                     ActionButtonWhite(
                         text = "자세히보기",
