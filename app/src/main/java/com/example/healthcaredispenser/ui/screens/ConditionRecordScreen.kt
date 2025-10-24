@@ -111,11 +111,7 @@ fun ConditionRecordScreen(
                 onRecordClick = {
                     navController.popBackStack(Routes.RECORD_ROUTE.replace("{profileId}", profileId.toString()), inclusive = false)
                     if (navController.currentDestination?.route != Routes.RECORD_ROUTE) {
-                        navController.navigate("${Routes.RECORD}/$profileId") {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigate("${Routes.RECORD}/$profileId") { /* ... 동일 ... */ }
                     }
                 },
                 onSettingsClick = {

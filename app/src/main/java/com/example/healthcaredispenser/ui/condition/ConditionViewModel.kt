@@ -17,6 +17,7 @@ import retrofit2.HttpException
 import java.io.IOException
 import java.time.LocalDate // ⭐️ 추가 (날짜 변환용)
 import java.time.format.DateTimeParseException // ⭐️ 추가 (날짜 변환용)
+import java.time.format.DateTimeFormatter
 
 // UI 상태 정의 (로딩, 에러, 성공 이벤트)
 data class ConditionUiState(
@@ -40,26 +41,30 @@ class ConditionViewModel(
     private val _navigationEvent = MutableSharedFlow<ConditionNavigationEvent>()
     val navigationEvent: SharedFlow<ConditionNavigationEvent> = _navigationEvent.asSharedFlow()
 
-    fun saveConditionRecord(profileId: Long, sleepQuality: Int, fatigueLevel: Int) {
+    fun saveConditionRecord(profileId: Long, sleepQuality: Int, fatigueLevel: Int) { // 👈 intakeId -> profileId
         viewModelScope.launch {
-            _uiState.value = ConditionUiState(isLoading = true) // 로딩 시작
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
+            // 오늘 날짜를 "YYYY-MM-DD" 형식 문자열로 생성
+            val todayDateString = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
 
             val request = CreateConditionRecordRequest(
+                recordDate = todayDateString, // ⭐️ 오늘 날짜 추가
                 sleepQuality = sleepQuality,
                 fatigueLevel = fatigueLevel
             )
 
-            repository.createConditionRecord(profileId, request)
+            repository.createConditionRecord(profileId, request) // 👈 profileId 사용
                 .onSuccess {
-                    Log.d("ConditionViewModel", "Record saved successfully for profile $profileId")
-                    _uiState.value = ConditionUiState(isLoading = false) // 로딩 종료
-                    _navigationEvent.emit(ConditionNavigationEvent.NavigateBack) // 성공 시 뒤로가기 이벤트
+                    Log.d("ConditionViewModel", "Record saved successfully for profile $profileId on $todayDateString") // 로그 수정
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    _navigationEvent.emit(ConditionNavigationEvent.NavigateBack)
                 }
                 .onFailure { e ->
-                    Log.e("ConditionViewModel", "Failed to save record for profile $profileId", e)
-                    _uiState.value = ConditionUiState(
+                    Log.e("ConditionViewModel", "Failed to save record for profile $profileId on $todayDateString", e) // 로그 수정
+                    _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = humanReadableError(e) // 사용자 친화적 에러 메시지
+                        error = humanReadableError(e)
                     )
                 }
         }

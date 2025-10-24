@@ -9,11 +9,11 @@ import retrofit2.http.Path
 import retrofit2.http.GET
 
 interface ConditionApi {
-    @POST("api/profiles/{profileId}/conditions-record")
+    @POST("api/profiles/{profileId}/daily-conditions") // 👈 경로 변경
     suspend fun createConditionRecord(
-        @Path("profileId") profileId: Long,
-        @Body req: CreateConditionRecordRequest
-    ): Response<Unit> // ⭐️ 성공 여부만 받음 (본문 없음)
+        @Path("profileId") profileId: Long, // 👈 intakeId -> profileId
+        @Body req: CreateConditionRecordRequest // 👈 요청 모델에 date 포함됨
+    ): Response<Unit>
 
     @GET("api/profiles/{profileId}/conditions-record")
     suspend fun getConditionHistory(

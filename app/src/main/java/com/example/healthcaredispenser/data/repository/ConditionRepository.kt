@@ -6,19 +6,18 @@ import com.example.healthcaredispenser.data.model.condition.ConditionRecordRespo
 import com.example.healthcaredispenser.data.model.condition.CreateConditionRecordRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.LocalDate // ⭐️ 추가
+import java.time.format.DateTimeFormatter // ⭐️ 추가
 
 class ConditionRepository(
     private val api: ConditionApi = provideConditionApi()
 ) {
-    suspend fun createConditionRecord(profileId: Long, req: CreateConditionRecordRequest): Result<Unit> =
+    suspend fun createConditionRecord(profileId: Long, req: CreateConditionRecordRequest): Result<Unit> = // 👈 intakeId -> profileId
         runCatching {
             val response = withContext(Dispatchers.IO) {
-                api.createConditionRecord(profileId, req)
+                api.createConditionRecord(profileId, req) // 👈 profileId 사용
             }
-            if (response.isSuccessful) {
-                Unit // 성공 시 Unit 반환
-            } else {
-                // HTTP 오류 코드와 메시지로 에러 생성
+            if (!response.isSuccessful) {
                 error("Record creation failed: ${response.code()} - ${response.message()}")
             }
         }
