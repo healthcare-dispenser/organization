@@ -117,7 +117,14 @@ fun AppNavGraph(
         composable(Routes.SIGNUP) {
             SignupScreen(
                 onBackClick = { navController.popBackStack() },
-                onSubmitClick = { _, _, _ ->
+                onSubmitClick = { email, password, passwordConfirm ->
+                    // ✅ ViewModel의 signUp 함수 호출!
+                    authVm.signUp(email, password, passwordConfirm)
+
+                    // TODO: 회원가입 성공/실패 여부를 ViewModel의 상태나 이벤트를 통해
+                    // 확인하고 성공했을 때만 WelcomeScreen으로 이동하는 로직 추가 필요
+                    // (지금은 일단 호출 후 바로 이동하도록 임시 구현)
+
                     navController.navigate(Routes.WELCOME) {
                         popUpTo(Routes.WELCOME) { inclusive = true }
                         launchSingleTop = true
