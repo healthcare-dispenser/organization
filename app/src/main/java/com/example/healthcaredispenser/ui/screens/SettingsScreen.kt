@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -45,20 +44,8 @@ fun SettingsScreen(
 ) {
     Scaffold(
         containerColor = Color.White,
-        topBar = {
-            // 뒤로가기 버튼
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = 16.dp, start = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로", tint = Color.Black)
-                }
-            }
-        },
+
+
         bottomBar = {
             BottomBar(
                 currentRoute = Routes.SETTINGS, // "설정" 탭 활성화
@@ -84,10 +71,12 @@ fun SettingsScreen(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(Modifier.height(30.dp))
             Text(
                 text = "설정",
                 style = MaterialTheme.typography.headlineSmall,

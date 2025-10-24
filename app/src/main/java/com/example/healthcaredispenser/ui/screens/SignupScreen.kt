@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -35,6 +36,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthcaredispenser.R
+import com.example.healthcaredispenser.ui.theme.LoginGreen
+import com.example.healthcaredispenser.ui.theme.BorderGray
 
 @SuppressLint("UnrememberedMutableState")
 @Composable
@@ -94,19 +97,11 @@ fun SignupScreen(
         horizontalAlignment = Alignment.Start
     ) {
         // back
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .shadow(8.dp, CircleShape, clip = true)
-                .background(Color.White)
-                .clickable { onBackClick() },
-            contentAlignment = Alignment.Center
-        ) {
+        IconButton(onClick = onBackClick) {
             Icon(
-                painter = painterResource(id = R.drawable.arrow_back_2),
+                imageVector = Icons.Filled.ArrowBack, // ⭐️ 표준 ArrowBack 아이콘 사용
                 contentDescription = "뒤로가기",
-                tint = Color(0xFF222222)
+                tint = Color.Black // 필요 시 색상 조정
             )
         }
 

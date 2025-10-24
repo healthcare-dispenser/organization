@@ -22,6 +22,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+// ⭐️ SignupScreen과 동일한 색상 사용을 위해 추가
+import com.example.healthcaredispenser.ui.theme.LoginGreen
+import com.example.healthcaredispenser.ui.theme.BorderGray
+import com.example.healthcaredispenser.ui.theme.HintGray // 필요 시 사용 (현재는 미사용)
+import com.example.healthcaredispenser.ui.theme.SignBg
+
 
 @Composable
 fun WelcomeScreen(
@@ -29,11 +35,11 @@ fun WelcomeScreen(
     onLoginClick: (String, String) -> Unit = { _, _ -> },
     onSignUpClick: () -> Unit = {}
 ) {
-    // Colors by spec
-    val borderGray = Color(0xFFD0D5DD) // 이메일/비밀번호 박스 테두리
-    val loginGreen = Color(0xFF2E7D32) // 로그인 버튼
-    val signBg = Color(0xFFE8F5E9)     // 회원가입 박스 배경
-    val hintGray = Color(0xFF6F7783)   // 플레이스홀더
+    // Colors (SignupScreen과 통일)
+    // val borderGray = Color(0xFFD0D5DD) // BorderGray 테마 색상 사용
+    // val loginGreen = Color(0xFF2E7D32) // LoginGreen 테마 색상 사용
+    // val signBg = Color(0xFFE8F5E9)     // SignBg 테마 색상 사용
+    // val hintGray = Color(0xFF6F7783)   // HintGray 테마 색상 사용 (필요 시)
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -58,13 +64,14 @@ fun WelcomeScreen(
 
         Spacer(Modifier.height(56.dp))
 
+        // ⬇️ === 이메일 OutlinedTextField 수정 === ⬇️
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            placeholder = { Text("이메일 입력") },
+                .heightIn(min = 56.dp), // height 고정 대신 heightIn 사용
+            label = { Text("이메일") }, // placeholder -> label
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             keyboardOptions = KeyboardOptions(
@@ -74,29 +81,28 @@ fun WelcomeScreen(
             keyboardActions = KeyboardActions(
                 onNext = { pwFocusRequester.requestFocus() }
             ),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = borderGray,
-                unfocusedBorderColor = borderGray,
-                cursorColor = loginGreen,
-                focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedPlaceholderColor = hintGray,
-                unfocusedPlaceholderColor = hintGray
+            colors = OutlinedTextFieldDefaults.colors( // 색상 SignupScreen과 동일하게 설정
+                focusedBorderColor = LoginGreen,
+                unfocusedBorderColor = BorderGray,
+                cursorColor = LoginGreen,
+                focusedLabelColor = LoginGreen,
+                unfocusedLabelColor = Color.Gray // 비활성 레이블 색상
+                // focusedTextColor, unfocusedTextColor 등은 기본값 사용
             )
         )
+        // ⬆️ =================================== ⬆️
 
         Spacer(Modifier.height(20.dp))
 
+        // ⬇️ === 비밀번호 OutlinedTextField 수정 === ⬇️
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .heightIn(min = 56.dp) // height 고정 대신 heightIn 사용
                 .focusRequester(pwFocusRequester),
-            placeholder = { Text("비밀번호 입력") },
+            label = { Text("비밀번호") }, // placeholder -> label
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             shape = RoundedCornerShape(12.dp),
@@ -110,18 +116,15 @@ fun WelcomeScreen(
                     onLoginClick(email, password)
                 }
             ),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = borderGray,
-                unfocusedBorderColor = borderGray,
-                cursorColor = loginGreen,
-                focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedPlaceholderColor = hintGray,
-                unfocusedPlaceholderColor = hintGray
+            colors = OutlinedTextFieldDefaults.colors( // 색상 SignupScreen과 동일하게 설정
+                focusedBorderColor = LoginGreen,
+                unfocusedBorderColor = BorderGray,
+                cursorColor = LoginGreen,
+                focusedLabelColor = LoginGreen,
+                unfocusedLabelColor = Color.Gray // 비활성 레이블 색상
             )
         )
+        // ⬆️ ===================================== ⬆️
 
         Spacer(Modifier.height(28.dp))
 
@@ -134,7 +137,7 @@ fun WelcomeScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = loginGreen)
+            colors = ButtonDefaults.buttonColors(containerColor = LoginGreen)
         ) {
             Text("로그인", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
         }
@@ -151,8 +154,8 @@ fun WelcomeScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = signBg,
-                contentColor = loginGreen
+                containerColor = SignBg, // 테마 색상 사용
+                contentColor = LoginGreen // 테마 색상 사용
             )
         ) {
             Text("회원가입", fontSize = 18.sp, fontWeight = FontWeight.Medium)
