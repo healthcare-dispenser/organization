@@ -20,11 +20,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import com.example.healthcaredispenser.R
-import com.example.healthcaredispenser.data.model.intake.IntakeItem
 import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.components.BottomBar
+import com.example.healthcaredispenser.ui.intake.IntakeViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
-private val SurfaceGreen = Color(0xFFE8F5E9)
 private val OutlineGray  = Color(0xFF6F7783)
 private val TextPrimary  = Color(0xFF1A1A1A)
 private val TextSecondary= Color(0xFF6F7783)
@@ -36,13 +36,17 @@ fun IntakeHistoryScreen(
     navController: NavHostController,
     profileId: Long
 ) {
-    // 서버 연동 전: 더미 목록(비우면 빈 상태 화면)
-    var items by remember { mutableStateOf(dummyIntakeItems()) }
+    val vm: IntakeViewModel = viewModel()
+    val items by vm.all.collectAsState()
+    val loading by vm.loading.collectAsState()
+    val error by vm.error.collectAsState()
+
+    LaunchedEffect(profileId) { vm.load(profileId) }
 
     Scaffold(
         bottomBar = {
             BottomBar(
-                currentRoute = Routes.RECORD, // '기록' 탭 강조
+                currentRoute = Routes.RECORD,
                 onHomeClick = {
                     navController.navigate("${Routes.HOME}/$profileId") {
                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -64,62 +68,57 @@ fun IntakeHistoryScreen(
     ) { inner ->
         Column(
             modifier = Modifier
-                .padding(inner)
+                .padding(inner)               // 상하단 시스템/바텀바 패딩 반영
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
-                .offset(y = 20.dp)
         ) {
-            // 상단 바: 뒤로가기 + 타이틀 (arrow_back_2 사용)
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(
-                        painter = painterResource(R.drawable.arrow_back_2),
-                        contentDescription = "뒤로",
-                        tint = TextPrimary
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "복용 기록",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .padding(start = 16.dp) // 기본 위치
-                        .offset(x = (-55).dp, y = (40).dp) // ← X, Y로 미세조정
+            // 뒤로가기
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(
+                    painter = painterResource(R.drawable.arrow_back_2),
+                    contentDescription = "뒤로",
+                    tint = TextPrimary
                 )
-                Spacer(Modifier.height(8.dp))
             }
 
-            if (items.isEmpty()) {
-                EmptyIntakeView(
-                    onGoBack = { navController.popBackStack() }
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 12.dp)
-                        .offset(y = 35.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(items, key = { it.intakeId }) { log ->
-                        IntakeHistoryItem(
-                            timeText = (log.completedAt ?: log.requestedAt ?: ""),
-                            summary  = buildSummary(log),
-                            onClick  = { /* 상세 필요시 연결 */ }
+            // 제목
+            Text(
+                text = "복용 기록",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            when {
+                loading -> Text("불러오는 중...", color = TextSecondary)
+                error != null -> Text("기록을 불러오지 못했어요", color = Color(0xFFD32F2F))
+                items.isEmpty() -> EmptyIntakeView(onGoBack = { navController.popBackStack() })
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        // ✅ 바텀바(72dp) + 여유(16dp) = 88dp, 고정 패딩으로 충돌/오류 없이 처리
+                        contentPadding = PaddingValues(
+                            top = 8.dp,
+                            bottom = 50.dp
                         )
+                    ) {
+                        items(items, key = { it.intakeId }) { log ->
+                            IntakeHistoryItem(
+                                timeText = vm.toUiTime(log.completedAt ?: log.requestedAt),
+                                summary  = vm.buildSummary(log),
+                                onClick  = { /* 상세 연결 필요 시 */ }
+                            )
+                        }
                     }
-                    item { Spacer(Modifier.height(8.dp)) }
                 }
             }
         }
     }
 }
 
-/** 카드 1행 */
 @Composable
 private fun IntakeHistoryItem(
     timeText: String,
@@ -140,17 +139,15 @@ private fun IntakeHistoryItem(
     }
 }
 
-/** 빈 상태뷰 */
 @Composable
 private fun EmptyIntakeView(
     onGoBack: () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 48.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(Modifier.height(24.dp))
         Icon(
             painter = painterResource(id = R.drawable.insert_chart),
             contentDescription = null,
@@ -170,41 +167,8 @@ private fun EmptyIntakeView(
                 contentColor   = Color.Black
             ),
             border = androidx.compose.foundation.BorderStroke(1.dp, OutlineGray)
-        ) {
-            Text("돌아가기")
-        }
+        ) { Text("돌아가기") }
         Spacer(Modifier.height(24.dp))
         Divider(color = OutlineGray.copy(alpha = 0.3f))
     }
 }
-
-/** 더미 데이터 (서버 붙이기 전) */
-private fun dummyIntakeItems(): List<IntakeItem> = listOf(
-    IntakeItem(
-        intakeId = 1, melatonin = 3.0, status = "SUCCESS",
-        requestedAt = "25/09/15 19:59", completedAt = "25/09/15 20:00"
-    ),
-    IntakeItem(
-        intakeId = 2, magnesium = 225.0, electrolyte = 40.0, status = "SUCCESS",
-        requestedAt = "25/09/15 13:59", completedAt = "25/09/15 14:00"
-    ),
-    IntakeItem(
-        intakeId = 3, melatonin = 3.0, status = "SUCCESS",
-        requestedAt = "25/09/14 19:59", completedAt = "25/09/14 20:00"
-    ),
-    IntakeItem(
-        intakeId = 4, vitamin = 6.0, status = "SUCCESS", // 예: 아연 6mg 대신 vitamin 필드 사용 (샘플)
-        requestedAt = "25/09/14 08:59", completedAt = "25/09/14 09:00"
-    )
-)
-
-/** 항목 요약 문자열 생성 (null인 성분은 생략) */
-private fun buildSummary(item: IntakeItem): String {
-    val parts = mutableListOf<String>()
-    item.melatonin?.let { parts += "멜라토닌 ${trimZero(it)}mg" }
-    item.magnesium?.let { parts += "마그네슘 ${trimZero(it)}mg" }
-    item.electrolyte?.let { parts += "전해질 ${trimZero(it)}mg" }
-    item.vitamin?.let { parts += "비타민 ${trimZero(it)}mg" } // 필요 시 '아연' 등으로 변경
-    return parts.joinToString(" , ")
-}
-private fun trimZero(v: Double): String = if (v % 1.0 == 0.0) v.toInt().toString() else v.toString()

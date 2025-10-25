@@ -7,7 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,27 +16,35 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavGraph.Companion.findStartDestination // ⭐️ 추가
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import com.example.healthcaredispenser.R
 import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.components.BottomBar
+import com.example.healthcaredispenser.ui.intake.IntakeViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
-private val SurfaceGreen = Color(0xFFE8F5E9)      // 카드 배경
-private val OutlineGray  = Color(0xFF6F7783)      // 모든 테두리
+private val SurfaceGreen = Color(0xFFE8F5E9)
+private val OutlineGray  = Color(0xFF6F7783)
 private val TextPrimary  = Color(0xFF1A1A1A)
 private val TextSecondary= Color(0xFF6F7783)
 
 @Composable
 fun RecordScreen(
     navController: NavHostController,
-    profileId: Long // ⭐️ 1. profileId 인자 추가
+    profileId: Long
 ) {
+    val vm: IntakeViewModel = viewModel()
+    val recent by vm.recent4.collectAsState()
+    val loading by vm.loading.collectAsState()
+    val error by vm.error.collectAsState()
+
+    LaunchedEffect(profileId) { vm.load(profileId) }
+
     Scaffold(
         bottomBar = {
             BottomBar(
                 currentRoute   = Routes.RECORD,
-                // ⬇️ === 2. 수정된 부분 (BottomBar onClick) === ⬇️
                 onHomeClick    = {
                     navController.navigate("${Routes.HOME}/$profileId") {
                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -52,21 +60,17 @@ fun RecordScreen(
                         restoreState = true
                     }
                 }
-                // ⬆️ ======================================== ⬆️
             )
         }
     ) { inner ->
         Column(
             modifier = Modifier
-                .padding(inner)
+                .padding(inner)               // 바텀바 패딩 자동 반영
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
-                .offset(y = 50.dp)  // 화면 전체를 살짝 아래로
         ) {
-
             Spacer(Modifier.height(8.dp))
 
-            // 제목: 뒤로가기 바로 아래
             Text(
                 text = "섭취 기록",
                 style = MaterialTheme.typography.headlineSmall,
@@ -74,7 +78,8 @@ fun RecordScreen(
             )
 
             Spacer(Modifier.height(16.dp))
-            // ── 컨디션 기록 카드 ───────────────────────────────────────────────
+
+            // ── 컨디션 기록 카드 ─
             SectionCard(
                 leadingIconId = R.drawable.graph_6,
                 title = "컨디션 기록",
@@ -85,17 +90,12 @@ fun RecordScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // ⬇️ === 3. 수정된 부분 ('기록하기' 버튼 onClick) === ⬇️
                     ActionButtonWhite(
                         text = "기록하기",
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
-                    ) {
-                        // ✅ 수정: ConditionRecordScreen으로 profileId 전달
-                        navController.navigate("${Routes.CONDITION_RECORD}/$profileId")
-                    }
-                    // ⬆️ ============================================= ⬆️
+                    ) { navController.navigate("${Routes.CONDITION_RECORD}/$profileId") }
 
                     ActionButtonWhite(
                         text = "자세히보기",
@@ -108,23 +108,31 @@ fun RecordScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // ── 복용 기록 카드 ────────────────────────────────────────────────
+            // ── 복용 기록 카드 ─
             SectionCard(
                 leadingIconId = R.drawable.calendar_month,
                 title = "복용 기록",
                 rightIconId = R.drawable.more,
                 onRightClick = { /* TODO: 정렬/필터 */ }
             ) {
-                IntakeRow("25/09/15 20:00", "멜라토닌 3mg") { navController.navigate("${Routes.INTAKE_HISTORY}/$profileId")}
-                IntakeRow("25/09/15 14:00", "마그네슘 225mg , 전해질 40mg") {navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }
-                IntakeRow("25/09/14 20:00", "멜라토닌 3mg") {navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }
-                IntakeRow("25/09/14 09:00", "아연 6mg") {navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }
+                when {
+                    loading -> Text("불러오는 중...", color = TextSecondary)
+                    error != null -> Text("기록을 불러오지 못했어요", color = Color(0xFFD32F2F))
+                    recent.isEmpty() -> Text("복용 기록이 없어요", color = TextSecondary)
+                    else -> {
+                        recent.forEach { log ->
+                            IntakeRow(
+                                title = vm.toUiTime(log.completedAt ?: log.requestedAt),
+                                subtitle = vm.buildSummary(log),
+                                onClick = { navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }
+                            )
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(8.dp))
-
-                // 하단 버튼도 동일 스타일
                 OutlinedButton(
-                    onClick = { navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") }, // ⬅️ 이동
+                    onClick = { navController.navigate("${Routes.INTAKE_HISTORY}/$profileId") },
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -134,9 +142,7 @@ fun RecordScreen(
                         contentColor   = Color.Black
                     ),
                     border = BorderStroke(1.dp, OutlineGray)
-                ) {
-                    Text("자세히보기", fontWeight = FontWeight.SemiBold)
-                }
+                ) { Text("자세히보기", fontWeight = FontWeight.SemiBold) }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -156,11 +162,7 @@ private fun SectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .background(SurfaceGreen, RoundedCornerShape(16.dp))
-            .border(
-                width = 1.dp,
-                brush = SolidColor(OutlineGray),
-                shape = RoundedCornerShape(16.dp)
-            )
+            .border(1.dp, SolidColor(OutlineGray), RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -174,12 +176,11 @@ private fun SectionCard(
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))   // 간격 정리
         content()
     }
 }
 
-// 흰 배경/검정 텍스트/6F7783 테두리 버튼
 @Composable
 private fun ActionButtonWhite(
     text: String,
