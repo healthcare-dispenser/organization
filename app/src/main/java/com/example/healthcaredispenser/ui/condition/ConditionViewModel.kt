@@ -49,7 +49,6 @@ class ConditionViewModel(
             val todayDateString = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
 
             val request = CreateConditionRecordRequest(
-                recordDate = todayDateString, // ⭐️ 오늘 날짜 추가
                 sleepQuality = sleepQuality,
                 fatigueLevel = fatigueLevel
             )

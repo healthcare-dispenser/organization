@@ -5,14 +5,20 @@ import java.time.format.DateTimeFormatter
 
 // 요청 모델 (수정 없음)
 data class CreateConditionRecordRequest(
-    val recordDate: String, // ⭐️ 날짜 필드 추가 (YYYY-MM-DD 형식 문자열)
     val sleepQuality: Int,
     val fatigueLevel: Int
 )
 
-// ⭐️ 응답 목록 아이템 모델
+// GET 응답의 아이템 모델 (feedbackId 추가)
 data class ConditionRecordResponseItem(
-    val recordDate: String, // 서버에서 문자열로 준다고 가정 (예: "2025-10-24")
+    val feedbackId: Long, // ⭐️ 추가 (Long 타입으로 가정)
+    val recordDate: String, // 시간 포함된 ISO 형식 문자열 (예: "2025-10-25T06:54:50.977Z")
     val sleepQuality: Int,
     val fatigueLevel: Int
+)
+
+// GET 응답 전체를 감싸는 모델 (Swagger 형식)
+data class ConditionHistoryResponse(
+    val items: List<ConditionRecordResponseItem>,
+    val count: Int
 )

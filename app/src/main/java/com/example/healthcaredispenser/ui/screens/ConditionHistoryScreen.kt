@@ -36,6 +36,7 @@ import com.example.healthcaredispenser.ui.theme.HintGray
 import com.example.healthcaredispenser.ui.theme.LoginGreen
 import com.example.healthcaredispenser.ui.theme.SignBg
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException // ⭐️ 추가
 
@@ -147,13 +148,19 @@ fun ConditionHistoryScreen(
 }
 
 @Composable
-private fun HistoryItemCard(record: ConditionRecordResponseItem) { // ⭐️ ConditionRecordItem -> ConditionRecordResponseItem
-    val dateFormatter = DateTimeFormatter.ofPattern("yy/MM/dd")
-    // ⭐️ 서버에서 받은 날짜 문자열 파싱 (오류 처리 포함)
+private fun HistoryItemCard(record: ConditionRecordResponseItem) {
+    // ⭐️ 출력할 날짜 형식 정의 (yy/MM/dd)
+    val outputDateFormatter = DateTimeFormatter.ofPattern("yy/MM/dd")
+
+    // ⭐️ 서버에서 받은 ISO 형식 날짜/시간 문자열 파싱 (시간대 정보 포함)
     val dateText = try {
-        LocalDate.parse(record.recordDate).format(dateFormatter)
+        // OffsetDateTime으로 파싱 (시간대 정보 처리, API 26+)
+        val offsetDateTime = OffsetDateTime.parse(record.recordDate)
+        // LocalDate로 변환 후 원하는 형식으로 포맷
+        offsetDateTime.toLocalDate().format(outputDateFormatter)
     } catch (e: DateTimeParseException) {
-        record.recordDate // 파싱 실패 시 원본 문자열 표시
+        // 파싱 실패 시 날짜 부분만 표시 시도 (T 앞부분)
+        record.recordDate.substringBefore("T", record.recordDate)
     }
 
     Row(
@@ -168,13 +175,13 @@ private fun HistoryItemCard(record: ConditionRecordResponseItem) { // ⭐️ Con
     ) {
         // 날짜
         Text(
-            text = dateText, // ⭐️ 파싱된 날짜 사용
+            text = dateText, // ⭐️ 파싱/포맷된 날짜 사용
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.Black
         )
 
-        // 수면 점수 + 피로도 점수
+        // 수면 점수 + 피로도 점수 (변경 없음)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             ScoreItem(icon = Icons.Outlined.NightsStay, score = record.sleepQuality)
             ScoreItem(icon = Icons.Outlined.SentimentDissatisfied, score = record.fatigueLevel)
