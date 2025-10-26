@@ -12,6 +12,13 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
+// ✅ 추천 배합 응답 모델 (스크린샷 JSON 구조와 일치)
+data class RecommendationResponse(
+    val zinc: Double? = null,        // 아연
+    val melatonin: Double? = null,
+    val magnesium: Double? = null,
+    val electrolyte: Double? = null
+)
 interface IntakeApi {
     @POST("/api/intakes")
     suspend fun createIntake(@Body req: CreateIntakeRequest): CreateIntakeResponse
@@ -30,6 +37,12 @@ interface IntakeApi {
         @Query("to") to: String? = null,
         @Query("status") status: String? = null
     ): ListIntakesResponse
+
+    // ✅ 홈 화면 추천 배합 조회 API 함수 추가
+    @GET("api/profiles/{profileId}/recommend") // 👈❗️ 경로를 스크린샷에 맞게 /recommend 로 수정!
+    suspend fun getRecommendation(
+        @Path("profileId") profileId: Long
+    ): RecommendationResponse // 👈 위에서 정의한 응답 모델 사용
 
     // ⬇️ 구 엔드포인트(바디가 필요한 GET). 기존 코드와 호환 위해 유지
     @HTTP(method = "GET", path = "/api/intakes", hasBody = true)

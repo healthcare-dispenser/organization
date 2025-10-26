@@ -1,8 +1,11 @@
 package com.example.healthcaredispenser.data.repository
 
 import com.example.healthcaredispenser.data.api.IntakeApi
+import com.example.healthcaredispenser.data.api.RecommendationResponse
 import com.example.healthcaredispenser.data.model.intake.CreateIntakeRequest
 import com.example.healthcaredispenser.data.model.intake.ListIntakesRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class IntakeRepository(private val api: IntakeApi) {
 
@@ -23,5 +26,13 @@ class IntakeRepository(private val api: IntakeApi) {
             api.listIntakesByProfile(profileId)
         } catch (_: Exception) {
             api.listIntakes(ListIntakesRequest(profileId = profileId, dispenserUuid = dispenserUuid))
+        }
+
+    // ✅ 추천 배합 조회 함수 추가 (Result<>로 감싸 안전하게 호출)
+    suspend fun getRecommendation(profileId: Long): Result<RecommendationResponse> =
+        runCatching {
+            withContext(Dispatchers.IO) { // IO 스레드에서 네트워크 작업 수행
+                api.getRecommendation(profileId)
+            }
         }
 }

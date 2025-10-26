@@ -29,13 +29,40 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
+
+// ✅ Double? 값을 "숫자mg" 또는 "- mg" 형태로 변환하는 헬퍼 함수 추가
+private fun Double?.formatAmount(unit: String = "mg"): String {
+    // this가 null이면 "0" + 단위 반환
+    if (this == null) return "0$unit"
+    // 소수점 아래 값이 없으면(정수면) 소수점 제거, 있으면 그대로 사용
+    return if (this % 1.0 == 0.0) {
+        "${this.toInt()}$unit"
+    } else {
+        "${this}$unit"
+    }
+}
 
 @Composable
 fun HomeScreen(
     onNavigateBack: () -> Unit,
     onNavigateToRecord: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    profileId: Long
+    profileId: Long,
+    // ✅ ViewModel 주입 방식으로 변경 (Factory 사용)
+    vm: HomeViewModel = viewModel(
+        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                // ViewModel 생성에 필요한 Repository 인스턴스 생성
+                val retrofit = RetrofitClient.retrofit
+                val api = retrofit.create(IntakeApi::class.java)
+                val repo = IntakeRepository(api)
+                // ViewModel 인스턴스 반환 (타입 캐스팅 필요)
+                @Suppress("UNCHECKED_CAST")
+                return HomeViewModel(repo) as T
+            }
+        }
+    )
 ) {
     // VM
     val vm = remember {
@@ -44,7 +71,7 @@ fun HomeScreen(
         val repo = IntakeRepository(api)
         HomeViewModel(repo)
     }
-    val ui = vm.state.collectAsState()
+    val ui by vm.state.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -60,21 +87,24 @@ fun HomeScreen(
     val progress = (goalCount.toFloat() / goalMax.toFloat()).coerceIn(0f, 1f)
     val animProgress by animateFloatAsState(targetValue = progress, label = "goal-progress")
 
-    // 화면 진입 시 해당 프로필의 날짜 보정
-    LaunchedEffect(profileId) { TodayGoalStore.ensureToday(context, profileId) }
+    // ✅ 화면 진입 시 추천 배합 로드 + 날짜 보정
+    LaunchedEffect(profileId) {
+        vm.loadRecommendation(profileId) // 👈 추천 배합 로드 함수 호출
+        TodayGoalStore.ensureToday(context, profileId) // 기존 로직
+    }
 
-    // API 상태 피드백 + 성공 시 해당 프로필 진행도 증가
-    LaunchedEffect(ui.value.status, profileId) {
-        when (ui.value.status) {
+    // API 상태 피드백 (배출 성공 시 추천값 새로고침 추가)
+    LaunchedEffect(ui.status, profileId) {
+        when (ui.status) {
             "SUCCESS" -> {
-                snackbarHostState.showSnackbar("배출 완료!")
-                TodayGoalStore.increment(context, profileId)
+                snackbarHostState.showSnackbar("배출 완료!") // 1. 스낵바 표시
+                TodayGoalStore.increment(context, profileId) // 2. 목표 횟수 증가
+                // ✅ 3. 배출 성공 후 최신 추천값 다시 로드!
+                vm.loadRecommendation(profileId)
             }
             "FAIL" -> snackbarHostState.showSnackbar("배출 실패. 잠시 후 다시 시도해 주세요.")
+            // 다른 상태(REQUESTED, PROCESSING 등)는 특별히 처리할 필요 없음
         }
-    }
-    LaunchedEffect(ui.value.error) {
-        ui.value.error?.let { snackbarHostState.showSnackbar(it) }
     }
 
     // 자정 자동 초기화(해당 프로필만)
@@ -172,29 +202,57 @@ fun HomeScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // 오늘의 추천 배합 박스 (생략없이 동일)
+            // ⬇️ === 오늘의 추천 배합 박스 (수정됨) === ⬇️
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFE8F5E9), RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFF6F7783), RoundedCornerShape(12.dp))
-                    .padding(16.dp)
+                    .background(Color(0xFFE8F5E9), RoundedCornerShape(12.dp)) // 배경색
+                    .border(1.dp, Color(0xFF6F7783), RoundedCornerShape(12.dp)) // 테두리
+                    .padding(16.dp) // 내부 패딩
             ) {
                 Column {
+                    // 섹션 제목 (아이콘 + 텍스트)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             painter = painterResource(id = R.drawable.trending_up),
                             contentDescription = "오늘의 추천 배합",
-                            tint = Color(0xFF2E7D32)
+                            tint = Color(0xFF2E7D32) // 아이콘 색상 (LoginGreen)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text("오늘의 추천 배합", fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.height(12.dp))
-                    SupplementRow("마그네슘", "근육 이완 & 스트레스 완화", "225mg", R.drawable.bolt)
-                    SupplementRow("아연", "면역력 강화 & 상처 치유", "6mg", R.drawable.shield)
-                    SupplementRow("전해질", "수분 균형 & 근육 기능", "350mg", R.drawable.humidity_low)
-                    SupplementRow("멜라토닌", "수면 질 개선 & 생체리듬", "3mg", R.drawable.moon_stars)
+                    Spacer(Modifier.height(12.dp)) // 제목과 내용 사이 간격
+
+                    // ✅ ViewModel의 recommendation 상태 가져오기
+                    val rec = ui.recommendation
+
+                    // ✅ 상태에 따른 분기 처리: 로딩 중 / 에러 / 데이터 표시
+                    when {
+                        // 초기 로딩 중 (데이터가 아직 없을 때)
+                        ui.loading && rec == null -> {
+                            Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator() // 로딩 인디케이터 표시
+                            }
+                        }
+                        // 로딩 끝났는데 에러가 있거나 데이터가 없을 때
+                        rec == null -> {
+                            Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = ui.error ?: "추천 배합 정보를\n불러올 수 없습니다.",
+                                    color = if (ui.error != null) Color.Red else Color.Gray,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                        }
+                        // 데이터가 성공적으로 로드되었을 때
+                        else -> {
+                            // 각 영양소 행 표시 (formatAmount 헬퍼 함수 사용)
+                            SupplementRow("마그네슘", "근육 이완 & 스트레스 완화", rec.magnesium.formatAmount(), R.drawable.bolt)
+                            SupplementRow("아연", "면역력 강화 & 상처 치유", rec.zinc.formatAmount(), R.drawable.shield) // ❗️ zinc 필드 사용
+                            SupplementRow("전해질", "수분 균형 & 근육 기능", rec.electrolyte.formatAmount(), R.drawable.humidity_low)
+                            SupplementRow("멜라토닌", "수면 질 개선 & 생체리듬", rec.melatonin.formatAmount(), R.drawable.moon_stars)
+                        }
+                    }
                 }
             }
 
@@ -219,7 +277,7 @@ fun HomeScreen(
                         }
                         vm.requestIntake(profileId = profileId, dispenserUuid = uuid)
                     },
-                    enabled = !ui.value.loading && goalCount < goalMax,
+                    enabled = !ui.loading && goalCount < goalMax,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
@@ -240,7 +298,7 @@ fun HomeScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            if (ui.value.loading) "배출 중..." else "한 잔 배출하기",
+                            if (ui.loading) "배출 중..." else "한 잔 배출하기",
                             color = Color.White,
                             fontSize = 16.sp
                         )

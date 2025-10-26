@@ -28,7 +28,7 @@ data class ListIntakesResponse(
 
 data class IntakeItem(
     val intakeId: Long,
-    val vitamin: Double? = null,
+    val zinc: Double? = null,
     val melatonin: Double? = null,
     val magnesium: Double? = null,
     val electrolyte: Double? = null,

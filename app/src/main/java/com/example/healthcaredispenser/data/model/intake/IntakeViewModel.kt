@@ -84,7 +84,7 @@ class IntakeViewModel : ViewModel() {
         item.melatonin?.let { parts += "멜라토닌 ${trimZero(it)}mg" }
         item.magnesium?.let { parts += "마그네슘 ${trimZero(it)}mg" }
         item.electrolyte?.let { parts += "전해질 ${trimZero(it)}mg" }
-        item.vitamin?.let { parts += "아연 ${trimZero(it)}mg" }
+        item.zinc?.let { parts += "아연 ${trimZero(it)}mg" }
         return parts.joinToString(" , ")
     }
 
