@@ -30,6 +30,7 @@ import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.launch
 import com.example.healthcaredispenser.data.api.DispenserApi
 import com.example.healthcaredispenser.data.api.RegisterDispenserRequest
+import com.example.healthcaredispenser.data.api.RegisterDispenserResponse
 import com.example.healthcaredispenser.data.api.RetrofitClient
 import com.example.healthcaredispenser.data.auth.DispenserStore
 import retrofit2.HttpException
@@ -54,7 +55,11 @@ fun QRScanScreen(
     // ZXing 스캐너
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let { raw ->
-            scanned = normalizeDispenserUuid(raw)
+            // 요구사항: "스캔된 텍스트를 그대로 uuid로 사용"
+            // - URL/별칭 구분 없이 trim만 하고 저장
+            scanned = raw.trim()
+            // 디버깅에 도움되는 토스트/스낵바
+            scope.launch { snackbarHostState.showSnackbar("스캔값: $scanned") }
         }
     }
 
@@ -136,18 +141,24 @@ fun QRScanScreen(
 
                 Button(
                     onClick = {
-                        val uuid = scanned.trim()
+                        val uuid = scanned
+                            .replace(Regex("[\\u200B-\\u200D\\uFEFF]"), "")
+                            .trim()
                         if (uuid.isEmpty()) {
                             scope.launch { snackbarHostState.showSnackbar("QR 스캔 후 저장해 주세요.") }
                             return@Button
                         }
                         scope.launch {
                             try {
-                                // ✅ 서버 등록 요청 (요청값 대신, 응답 uuid 신뢰)
-                                val res = api.register(RegisterDispenserRequest(uuid))
-                                val saved = res.dispenserUuid.ifBlank { uuid }
+                                // ✅ 서버 스펙에 맞춘 요청 바디: {"uuid": "..."}
+                                val res: RegisterDispenserResponse = api.register(RegisterDispenserRequest(uuid = uuid))
+
+                                // ✅ 서버가 돌려준 uuid를 우선 저장
+                                val saved = res.uuid.ifBlank { uuid }
                                 DispenserStore.set(context, saved)
-                                onSave(saved) // 홈으로 이동
+
+                                // 완료 후 콜백
+                                onSave(saved)
                             } catch (e: HttpException) {
                                 val msg = e.response()?.errorBody()?.string()
                                 snackbarHostState.showSnackbar("HTTP ${e.code()}: ${msg ?: e.message()}")
@@ -167,7 +178,9 @@ fun QRScanScreen(
 }
 
 // 카메라 시작 헬퍼
-private fun startScan(launcher: androidx.activity.compose.ManagedActivityResultLauncher<ScanOptions, com.journeyapps.barcodescanner.ScanIntentResult>) {
+private fun startScan(
+    launcher: androidx.activity.compose.ManagedActivityResultLauncher<ScanOptions, com.journeyapps.barcodescanner.ScanIntentResult>
+) {
     val options = ScanOptions()
         .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
         .setPrompt("QR 코드를 프레임 안에 맞춰주세요")
@@ -175,26 +188,4 @@ private fun startScan(launcher: androidx.activity.compose.ManagedActivityResultL
         .setOrientationLocked(true)
         .setCaptureActivity(com.example.healthcaredispenser.qr.CustomCaptureActivity::class.java)
     launcher.launch(options)
-}
-
-// ✅ 스캔 원문에서 서버가 기대하는 순수 UUID만 추출/정규화
-private fun normalizeDispenserUuid(raw: String): String {
-    val t = raw.trim()
-
-    // URL 형태라면 ?uuid= 파라미터 우선
-    if (t.startsWith("http", ignoreCase = true)) {
-        return runCatching {
-            Uri.parse(t).getQueryParameter("uuid")?.trim().takeUnless { it.isNullOrEmpty() }
-                ?: t.substringAfterLast('/').trim() // 마지막 경로 조각
-        }.getOrDefault(t)
-    }
-
-    // 텍스트에 uuid= 가 포함된 경우
-    if ("uuid=" in t) {
-        val v = t.substringAfter("uuid=").substringBefore('&').trim()
-        if (v.isNotEmpty()) return v
-    }
-
-    // 공백/제어문자 제거
-    return t
 }
