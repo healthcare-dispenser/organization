@@ -9,8 +9,7 @@ import com.example.healthcaredispenser.data.repository.IntakeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
-import java.time.OffsetDateTime
+import java.time.*
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
@@ -36,11 +35,14 @@ class IntakeViewModel : ViewModel() {
             _loading.value = true
             _error.value = null
             try {
-                // 신 엔드포인트 우선, 실패 시 구 엔드포인트로 폴백
-                val res = repo.listIntakesSmart(profileId, dispenserUuid)
+                // 서버 기본 size 제한(예: 7) 회피: size=200 명시
+                val res = repo.listIntakesSmart(profileId, dispenserUuid, size = 200)
 
-                // 최신순 (completedAt > requestedAt)
-                val sorted = res.items.sortedByDescending { it.completedAt ?: it.requestedAt ?: "" }
+                // 정렬 키: completedAt이 있으면 그 시간, 없으면 requestedAt
+                val sorted = res.items.sortedByDescending {
+                    maxOf(parseSortKey(it.completedAt), parseSortKey(it.requestedAt))
+                }
+
                 _all.value = sorted
                 _recent4.value = sorted.take(4)
             } catch (e: Exception) {
@@ -53,28 +55,28 @@ class IntakeViewModel : ViewModel() {
         }
     }
 
-    /** 서버 포맷(오프셋/초/소수초 유무 상관없이) → "HH:mm" */
+    /** 서버 ISO 문자열(오프셋/소수초 유무 무관) → "yyyy-MM-dd HH:mm" */
     fun toUiTime(iso: String?): String {
         if (iso.isNullOrBlank()) return ""
         val out = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
-        // 1️⃣ 오프셋(예: +09:00, Z 등)이 있는 경우
+        // 1) 오프셋 있는 ISO (예: 2025-10-25T12:08:17.349703+09:00)
         try {
             val odt = OffsetDateTime.parse(iso)
             return odt.toLocalDateTime().format(out)
-        } catch (_: DateTimeParseException) { /* 다음 시도 */ }
+        } catch (_: DateTimeParseException) { }
 
-        // 2️⃣ 오프셋 없는 ISO_LOCAL_DATE_TIME (예: 2025-10-25T12:08:17.349703)
+        // 2) 오프셋 없는 ISO_LOCAL_DATE_TIME (예: 2025-10-25T12:08:17.349703)
         try {
             val ldt = LocalDateTime.parse(iso, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             return ldt.format(out)
-        } catch (_: DateTimeParseException) { /* 다음 시도 */ }
+        } catch (_: DateTimeParseException) { }
 
-        // 3️⃣ 최후: 정규식으로 yyyy-MM-dd와 HH:mm 추출
+        // 3) yyyy-MM-ddTHH:mm 패턴만 추출
         val m = Regex("""(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})""").find(iso)
         if (m != null) return "${m.groupValues[1]} ${m.groupValues[2]}"
 
-        // 그래도 실패 시 원문 반환 (디버깅용)
+        // 실패 시 원문 반환(디버깅)
         return iso
     }
 
@@ -90,4 +92,29 @@ class IntakeViewModel : ViewModel() {
 
     private fun trimZero(v: Double): String =
         if (v % 1.0 == 0.0) v.toInt().toString() else v.toString()
+
+    /** 정렬 신뢰도 향상을 위한 파서: epoch milli 반환 (실패 시 Long.MIN_VALUE) */
+    private fun parseSortKey(iso: String?): Long {
+        if (iso.isNullOrBlank()) return Long.MIN_VALUE
+        return try {
+            // Offset 포함 문자열
+            OffsetDateTime.parse(iso).toInstant().toEpochMilli()
+        } catch (_: DateTimeParseException) {
+            try {
+                // Offset 없는 LocalDateTime → 시스템 타임존 기준
+                val ldt = LocalDateTime.parse(iso, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                ldt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            } catch (_: DateTimeParseException) {
+                // yyyy-MM-ddTHH:mm만 있는 경우
+                val m = Regex("""(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})""").find(iso)
+                if (m != null) {
+                    val dt = LocalDateTime.parse(
+                        "${m.groupValues[1]}T${m.groupValues[2]}:${m.groupValues[3]}:00",
+                        DateTimeFormatter.ISO_LOCAL_DATE_TIME
+                    )
+                    dt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                } else Long.MIN_VALUE
+            }
+        }
+    }
 }

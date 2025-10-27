@@ -4,34 +4,52 @@ import com.example.healthcaredispenser.data.api.IntakeApi
 import com.example.healthcaredispenser.data.api.RecommendationResponse
 import com.example.healthcaredispenser.data.model.intake.CreateIntakeRequest
 import com.example.healthcaredispenser.data.model.intake.ListIntakesRequest
+import com.example.healthcaredispenser.data.model.intake.ListIntakesResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class IntakeRepository(private val api: IntakeApi) {
 
     suspend fun createIntake(req: CreateIntakeRequest) = api.createIntake(req)
+
     suspend fun getIntake(intakeId: Long) = api.getIntake(intakeId)
 
-    // ✅ 신 엔드포인트(프로필 경로) – 1순위
-    suspend fun listIntakesByProfile(profileId: Long) =
-        api.listIntakesByProfile(profileId = profileId)
+    /** 신 엔드포인트: 페이지/사이즈 명시 (기본 size=200) */
+    suspend fun listIntakesByProfile(
+        profileId: Long,
+        page: Int? = null,
+        size: Int = 200
+    ) = api.listIntakesByProfile(
+        profileId = profileId,
+        page = page,
+        size = size,
+        from = null,
+        to = null,
+        status = null
+    )
 
-    // ⬇️ 구 엔드포인트(바디 GET) – 호환용
+    /** 구 엔드포인트(바디 GET) – 호환용 */
     suspend fun listIntakesLegacy(req: ListIntakesRequest) =
         api.listIntakes(req)
 
-    // ✅ 상황에 따라 자동 폴백 (신 → 구)
-    suspend fun listIntakesSmart(profileId: Long, dispenserUuid: String = "") =
-        try {
-            api.listIntakesByProfile(profileId)
-        } catch (_: Exception) {
-            api.listIntakes(ListIntakesRequest(profileId = profileId, dispenserUuid = dispenserUuid))
-        }
+    /**
+     * 상황에 따라 자동 폴백 (신 → 구).
+     * 신 엔드포인트는 size=200으로 넉넉히 요청해 서버 기본값(예: 7) 제한을 회피.
+     */
+    suspend fun listIntakesSmart(
+        profileId: Long,
+        dispenserUuid: String = "",
+        size: Int = 200
+    ): ListIntakesResponse = try {
+        listIntakesByProfile(profileId = profileId, size = size)
+    } catch (_: Exception) {
+        api.listIntakes(ListIntakesRequest(profileId = profileId, dispenserUuid = dispenserUuid))
+    }
 
-    // ✅ 추천 배합 조회 함수 추가 (Result<>로 감싸 안전하게 호출)
+    /** 홈 추천 배합 조회 (안전하게 Result로 래핑) */
     suspend fun getRecommendation(profileId: Long): Result<RecommendationResponse> =
         runCatching {
-            withContext(Dispatchers.IO) { // IO 스레드에서 네트워크 작업 수행
+            withContext(Dispatchers.IO) {
                 api.getRecommendation(profileId)
             }
         }

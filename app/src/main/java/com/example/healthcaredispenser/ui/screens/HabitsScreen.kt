@@ -33,6 +33,8 @@ import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.theme.HintGray
 import com.example.healthcaredispenser.ui.theme.LoginGreen
 import com.example.healthcaredispenser.ui.theme.SignBg
+import androidx.compose.foundation.verticalScroll // ✅ 추가
+import androidx.compose.foundation.rememberScrollState // ✅ 추가
 
 // === 피그마 비율 토큰 ===
 private object HabitsUI {
@@ -140,10 +142,11 @@ fun HabitsScreen(
     ) { inner ->
         Column(
             modifier = Modifier
-                .padding(inner)
-                .fillMaxSize()
-                .padding(horizontal = HabitsUI.ScreenSide),
-            horizontalAlignment = Alignment.Start
+                .padding(inner) // Scaffold의 내부 패딩 적용
+                .fillMaxSize() // 전체 화면 크기 차지
+                // ✅ 수직 스크롤 추가!
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = HabitsUI.ScreenSide) // 좌우 패딩은 스크롤 안쪽에 적용
         ) {
             Spacer(Modifier.height(HabitsUI.TitleTop))
 
@@ -176,8 +179,8 @@ fun HabitsScreen(
                 )
                 if (idx != items.lastIndex) Spacer(Modifier.height(HabitsUI.CardGap))
             }
+            Spacer(Modifier.height(HabitsUI.BtnVertical + HabitsUI.BtnHeight + 12.dp))
 
-            Spacer(Modifier.height(12.dp))
         }
     }
 }
