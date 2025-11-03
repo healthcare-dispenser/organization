@@ -2,9 +2,11 @@
 
 package com.example.healthcaredispenser.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -12,21 +14,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -34,9 +38,10 @@ import com.example.healthcaredispenser.R
 import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.auth.AuthViewModel
 import com.example.healthcaredispenser.ui.components.BottomBar
-import com.example.healthcaredispenser.ui.theme.BorderGray
 import com.example.healthcaredispenser.ui.theme.HintGray
-import com.example.healthcaredispenser.ui.theme.SignBg
+import kotlinx.coroutines.launch
+import com.example.healthcaredispenser.data.repository.DispenserRepository
+import com.example.healthcaredispenser.data.auth.DispenserStore
 
 @Composable
 fun SettingsScreen(
@@ -44,10 +49,14 @@ fun SettingsScreen(
     profileId: Long,
     authVm: AuthViewModel = viewModel()
 ) {
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+
+    // ✅ DataStore에서 QR 스캔으로 저장된 uuid 실시간 구독
+    val dispenserUuid by DispenserStore.flow(ctx).collectAsState(initial = null)
+
     Scaffold(
         containerColor = Color.White,
-
-
         bottomBar = {
             BottomBar(
                 currentRoute = Routes.SETTINGS, // "설정" 탭 활성화
@@ -91,9 +100,8 @@ fun SettingsScreen(
             SettingsCard(
                 iconPainter = painterResource(id = R.drawable.person),
                 title = "프로필",
-                subtitle = "선택된 생활 습관" ,
+                subtitle = "선택된 생활 습관",
                 iconOffsetY = (-12).dp
-
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -112,35 +120,49 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-
-                // ⬇️ === 수정된 부분 === ⬇️
                 SettingsButton("프로필 수정하기") {
-                    // ✅ 수정: '생성' 플로우(습관 선택)로 'profileId'를 가지고 이동
-                    // NavGraph의 "habits?profileId={profileId}" 경로를 호출
                     navController.navigate("${Routes.HABITS}?profileId=$profileId")
                 }
-                // ⬆️ =================== ⬆️
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // 2. 알림 설정 카드
+            // 2. 세척 카드 (알림 설정 → 세척)
             SettingsCard(
-                iconPainter = painterResource(id = R.drawable.notifications),
-                title = "알림 설정",
-                subtitle = "취침 전, 운동일 알림 설정",
-                iconOffsetY = (-11).dp
+                iconPainter = painterResource(id = R.drawable.water_drop),
+                title = "세척",
+                subtitle = "세척 할 용기를 선택해 주세요",
+                iconOffsetY = (-12.5).dp
             ) {
-                SettingsButton("알림 시간 설정") {
-                    // TODO: 알림 설정 화면으로 이동
-                }
+                WashSlotRow(
+                    onTap = { slot ->
+                        val uuid = dispenserUuid
+                        if (uuid.isNullOrBlank()) {
+                            Toast.makeText(ctx, "먼저 기기를 등록(QR 스캔)해 주세요.", Toast.LENGTH_SHORT).show()
+                            navController.navigate(Routes.QRSCAN)
+                            return@WashSlotRow
+                        }
+                        scope.launch {
+                            try {
+                                DispenserRepository.wash(uuid, slot)
+                                Toast.makeText(ctx, "세척 요청 완료 (슬롯 $slot)", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    ctx,
+                                    "세척 요청 실패: ${e.message ?: "알 수 없는 오류"}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
 
             // 3. 데이터 관리 카드
             SettingsCard(
-                iconPainter = painterResource(id = R.drawable.bar_chart_4_bars), // RecordScreen 아이콘
+                iconPainter = painterResource(id = R.drawable.bar_chart_4_bars),
                 title = "데이터 관리",
                 subtitle = null
             ) {
@@ -156,7 +178,7 @@ fun SettingsScreen(
 
             // 4. 기기 등록 카드
             SettingsCard(
-                iconPainter = painterResource(id = R.drawable.qr_code_scanner), // QRScanScreen 아이콘
+                iconPainter = painterResource(id = R.drawable.qr_code_scanner),
                 title = "기기 등록",
                 subtitle = null,
                 iconOffsetY = 1.dp
@@ -172,7 +194,6 @@ fun SettingsScreen(
             Button(
                 onClick = {
                     authVm.logout()
-                    // 로그인 화면으로 이동, 백스택 모두 제거
                     navController.navigate(Routes.WELCOME) {
                         popUpTo(0) { inclusive = true }
                         launchSingleTop = true
@@ -182,12 +203,12 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)) // 빨간색
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
             ) {
                 Text("로그아웃", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
             }
 
-            Spacer(Modifier.height(24.dp)) // 바텀바 전 여백
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -200,7 +221,7 @@ private fun SettingsCard(
     iconPainter: Painter? = null,
     title: String,
     subtitle: String?,
-    iconOffsetY: Dp = 0.dp, // ✅ 추가: 아이콘 y 오프셋
+    iconOffsetY: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
@@ -216,7 +237,7 @@ private fun SettingsCard(
                     icon,
                     contentDescription = title,
                     tint = Color.Black,
-                    modifier = Modifier.offset(y = iconOffsetY) // ✅ offset 적용
+                    modifier = Modifier.offset(y = iconOffsetY)
                 )
                 Spacer(Modifier.width(12.dp))
             }
@@ -227,7 +248,7 @@ private fun SettingsCard(
                     tint = Color.Black,
                     modifier = Modifier
                         .size(24.dp)
-                        .offset(y = iconOffsetY) // ✅ offset 적용
+                        .offset(y = iconOffsetY)
                 )
                 Spacer(Modifier.width(12.dp))
             }
@@ -245,13 +266,13 @@ private fun SettingsCard(
     }
 }
 
-
 @Composable
 private fun SettingsButton(
     text: String,
     icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
+    val borderColor = Color(0xFF6F7783)
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier
@@ -262,12 +283,57 @@ private fun SettingsButton(
             containerColor = Color.White,
             contentColor = Color.Black
         ),
-        border = BorderStroke(1.dp, BorderGray)
+        border = BorderStroke(1.dp, borderColor) // ✅ 테두리 6F7783로 통일
     ) {
         if (icon != null) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
         }
         Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+    }
+}
+
+/** ===== 세척용 컴포저블 ===== */
+
+@Composable
+private fun WashSlotRow(
+    onTap: (Int) -> Unit
+) {
+    val gap = 12.dp
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        (1..4).forEach { slot ->
+            WashBox(
+                label = slot.toString(),
+                onClick = { onTap(slot) }
+            )
+            if (slot != 4) Spacer(Modifier.width(gap))
+        }
+    }
+}
+
+@Composable
+private fun WashBox(
+    label: String,
+    onClick: () -> Unit
+) {
+    val borderColor = Color(0xFF6F7783)
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = Color.Black,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

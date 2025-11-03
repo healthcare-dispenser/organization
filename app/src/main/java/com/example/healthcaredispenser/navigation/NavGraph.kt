@@ -103,7 +103,7 @@ fun AppNavGraph(
                                 launchSingleTop = true
                             }
                         }
-                        // 다른 이벤트가 있다면 여기에 추가
+//                         다른 이벤트가 있다면 여기에 추가
                     }
                 }
             }

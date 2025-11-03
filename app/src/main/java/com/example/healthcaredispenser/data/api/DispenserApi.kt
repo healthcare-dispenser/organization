@@ -2,6 +2,7 @@ package com.example.healthcaredispenser.data.api
 
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 /**
  * 요청 바디는 스웨거 스펙에 맞춰 { "uuid": "..." } 형태로 보냅니다.
@@ -30,4 +31,15 @@ interface DispenserApi {
     suspend fun register(
         @Body req: RegisterDispenserRequest
     ): RegisterDispenserResponse
+
+    /**
+     * 세척 요청
+     * POST /api/dispensers/{dispenserUuid}/wash/{slot}
+     * Body 없음
+     */
+    @POST("api/dispensers/{dispenserUuid}/wash/{slot}")
+    suspend fun wash(
+        @Path("dispenserUuid") dispenserUuid: String,
+        @Path("slot") slot: Int
+    )
 }
