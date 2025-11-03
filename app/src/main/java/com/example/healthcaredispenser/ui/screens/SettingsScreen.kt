@@ -66,7 +66,6 @@ fun SettingsScreen(
     settingsVm: SettingsViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                // ✅ Factory가 SettingsViewModel의 새 생성자(exportRepo 하나만 받음)와 일치
                 val exportRepo = ExportRepository(provideExportApi())
                 @Suppress("UNCHECKED_CAST")
                 return SettingsViewModel(exportRepo) as T
