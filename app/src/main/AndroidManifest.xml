@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.example.healthcaredispenser">
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 선택: 네트워크 상태 체크 필요하면 -->
@@ -8,7 +9,7 @@
 
     <uses-feature android:name="android.hardware.camera" android:required="true"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
-
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
         android:name=".App"
@@ -18,7 +19,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.HealthCareDispenser"
         android:usesCleartextTraffic="true"
-        >
+        android:requestLegacyExternalStorage="true" tools:targetApi="31">
 
         <activity
             android:name=".MainActivity"

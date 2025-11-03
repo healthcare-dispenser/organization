@@ -2,7 +2,12 @@
 
 package com.example.healthcaredispenser.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,24 +47,91 @@ import com.example.healthcaredispenser.ui.theme.HintGray
 import kotlinx.coroutines.launch
 import com.example.healthcaredispenser.data.repository.DispenserRepository
 import com.example.healthcaredispenser.data.auth.DispenserStore
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.example.healthcaredispenser.data.api.provideExportApi
+import com.example.healthcaredispenser.data.repository.ExportRepository
+import com.example.healthcaredispenser.ui.settings.SettingsViewModel
+import com.example.healthcaredispenser.ui.theme.LoginGreen
 
 @Composable
 fun SettingsScreen(
     navController: NavController,
     profileId: Long,
-    authVm: AuthViewModel = viewModel()
+    authVm: AuthViewModel = viewModel(), // 기존 로그아웃용 ViewModel
+    // ✅ 데이터 내보내기용 ViewModel 새로 주입
+    settingsVm: SettingsViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                // ✅ Factory가 SettingsViewModel의 새 생성자(exportRepo 하나만 받음)와 일치
+                val exportRepo = ExportRepository(provideExportApi())
+                @Suppress("UNCHECKED_CAST")
+                return SettingsViewModel(exportRepo) as T
+            }
+        }
+    )
 ) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // ✅ DataStore에서 QR 스캔으로 저장된 uuid 실시간 구독
     val dispenserUuid by DispenserStore.flow(ctx).collectAsState(initial = null)
+    val ui by settingsVm.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // 권한 요청 런처 생성
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted: Boolean ->
+            if (isGranted) {
+                settingsVm.exportData(ctx)
+            } else {
+                scope.launch {
+                    snackbarHostState.showSnackbar("파일 저장 권한이 거부되었습니다.")
+                }
+            }
+        }
+    )
+
+    // 권한 체크 및 요청 함수
+    fun checkAndRequestPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            settingsVm.exportData(ctx)
+            return
+        }
+        when {
+            ContextCompat.checkSelfPermission(
+                ctx,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                settingsVm.exportData(ctx)
+            }
+            else -> {
+                requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+    }
+
+    // 성공/실패 메시지 스낵바로 표시
+    LaunchedEffect(ui.error, ui.successMessage) {
+        ui.error?.let {
+            snackbarHostState.showSnackbar(it)
+            settingsVm.clearMessages()
+        }
+        ui.successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            settingsVm.clearMessages()
+        }
+    }
 
     Scaffold(
         containerColor = Color.White,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             BottomBar(
-                currentRoute = Routes.SETTINGS, // "설정" 탭 활성화
+                currentRoute = Routes.SETTINGS,
                 onHomeClick = {
                     navController.navigate("${Routes.HOME}/$profileId") {
                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -120,6 +192,7 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(Modifier.height(16.dp))
+                // ✅ 원래 쓰던 SettingsButton 호출 (이제 오류 안 남)
                 SettingsButton("프로필 수정하기") {
                     navController.navigate("${Routes.HABITS}?profileId=$profileId")
                 }
@@ -127,7 +200,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // 2. 세척 카드 (알림 설정 → 세척)
+            // 2. 세척 카드 (팀원 코드 - 변경 없음)
             SettingsCard(
                 iconPainter = painterResource(id = R.drawable.water_drop),
                 title = "세척",
@@ -160,18 +233,45 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // 3. 데이터 관리 카드
+            // 3. 데이터 관리 카드 (신규 기능)
             SettingsCard(
                 iconPainter = painterResource(id = R.drawable.bar_chart_4_bars),
                 title = "데이터 관리",
                 subtitle = null
             ) {
-                SettingsButton(
-                    text = "데이터 내보내기",
-                    icon = Icons.Default.Download
+                // ⬇️ === 로딩 스피너 때문에 SettingsButton 대신 OutlinedButton을 직접 사용 === ⬇️
+                val borderColor = Color(0xFF6F7783)
+                OutlinedButton(
+                    onClick = { checkAndRequestPermission() }, // ✅ 권한 체크 함수 호출
+                    enabled = !ui.loading, // ✅ 로딩 중 비활성화
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(1.dp, borderColor)
                 ) {
-                    // TODO: 데이터 내보내기 로직
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "데이터 내보내기",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        modifier = Modifier.weight(1f) // 텍스트가 왼쪽 정렬되도록
+                    )
+                    // ✅ 로딩 중일 때 스피너 표시
+                    if (ui.loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = LoginGreen
+                        )
+                    }
                 }
+                // ⬆️ ================================================================ ⬆️
             }
 
             Spacer(Modifier.height(16.dp))
@@ -183,6 +283,7 @@ fun SettingsScreen(
                 subtitle = null,
                 iconOffsetY = 1.dp
             ) {
+                // ✅ 원래 쓰던 SettingsButton 호출 (이제 오류 안 남)
                 SettingsButton("QR코드 스캔하기") {
                     navController.navigate(Routes.QRSCAN)
                 }
@@ -190,7 +291,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // 5. 로그아웃 버튼
+            // 5. 로그아웃 버튼 (authVm 사용 - 변경 없음)
             Button(
                 onClick = {
                     authVm.logout()
@@ -215,6 +316,8 @@ fun SettingsScreen(
 
 
 // --- 이 파일 내에서만 사용하는 Helper Composables ---
+
+// ✅ SettingsCard의 올바른 정의 (단 1개)
 @Composable
 private fun SettingsCard(
     icon: ImageVector? = null,
@@ -262,10 +365,11 @@ private fun SettingsCard(
             }
         }
         Spacer(Modifier.height(16.dp))
-        content()
+        content() // ✅ 이 content 람다를 사용
     }
 }
 
+// ✅ SettingsButton의 원래 정의 (단 1개) - (trailingContent 파라미터 없음)
 @Composable
 private fun SettingsButton(
     text: String,
@@ -283,7 +387,7 @@ private fun SettingsButton(
             containerColor = Color.White,
             contentColor = Color.Black
         ),
-        border = BorderStroke(1.dp, borderColor) // ✅ 테두리 6F7783로 통일
+        border = BorderStroke(1.dp, borderColor)
     ) {
         if (icon != null) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -293,8 +397,7 @@ private fun SettingsButton(
     }
 }
 
-/** ===== 세척용 컴포저블 ===== */
-
+/** ===== 세척용 컴포저블 (건드리지 않음) ===== */
 @Composable
 private fun WashSlotRow(
     onTap: (Int) -> Unit
