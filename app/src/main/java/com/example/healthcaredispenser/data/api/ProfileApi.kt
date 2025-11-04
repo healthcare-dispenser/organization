@@ -1,6 +1,7 @@
 package com.example.healthcaredispenser.data.api
 
 import com.example.healthcaredispenser.data.model.profile.CreateProfileRequest
+import com.example.healthcaredispenser.data.model.profile.ProfileDto
 import com.example.healthcaredispenser.data.model.profile.ProfileItem
 import com.example.healthcaredispenser.data.model.profile.ProfileResponse
 import retrofit2.Response
@@ -38,6 +39,7 @@ interface ProfileApi {
     suspend fun delete(
         @Path("profileId") id: Long
     ): Response<Unit>
+
 }
 
 fun provideProfileApi(): ProfileApi =

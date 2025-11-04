@@ -53,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.healthcaredispenser.data.api.provideExportApi
+import com.example.healthcaredispenser.data.api.provideProfileApi
 import com.example.healthcaredispenser.data.repository.ExportRepository
 import com.example.healthcaredispenser.ui.settings.SettingsViewModel
 import com.example.healthcaredispenser.ui.theme.LoginGreen
@@ -62,7 +63,7 @@ fun SettingsScreen(
     navController: NavController,
     profileId: Long,
     authVm: AuthViewModel = viewModel(), // 기존 로그아웃용 ViewModel
-    // ✅ 데이터 내보내기용 ViewModel 새로 주입
+    // ✅ ViewModel Factory 원복 (ExportRepository만 생성)
     settingsVm: SettingsViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -125,6 +126,7 @@ fun SettingsScreen(
         }
     }
 
+
     Scaffold(
         containerColor = Color.White,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -179,7 +181,9 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("4개 태그", fontSize = 14.sp, color = HintGray) // TODO: 동적 데이터
+                    // ✅ 원래의 하드코딩된 "4개 태그"로 되돌림
+                    Text("4개 태그", fontSize = 14.sp, color = HintGray)
+
                     Box(
                         modifier = Modifier
                             .size(32.dp)
@@ -187,11 +191,12 @@ fun SettingsScreen(
                             .background(Color.Black.copy(alpha = 0.05f)),
                         contentAlignment = Alignment.Center
                     ) {
+                        // ✅ 원래의 하드코딩된 "4"로 되돌림
                         Text("4", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 14.sp)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                // ✅ 원래 쓰던 SettingsButton 호출 (이제 오류 안 남)
+                // ✅ SettingsButton 호출부는 원래대로 (변경 없음)
                 SettingsButton("프로필 수정하기") {
                     navController.navigate("${Routes.HABITS}?profileId=$profileId")
                 }
@@ -259,7 +264,6 @@ fun SettingsScreen(
                         text = "데이터 내보내기",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp,
-                        modifier = Modifier.weight(1f) // 텍스트가 왼쪽 정렬되도록
                     )
                     // ✅ 로딩 중일 때 스피너 표시
                     if (ui.loading) {

@@ -5,6 +5,7 @@ import com.example.healthcaredispenser.data.api.provideProfileApi
 import com.example.healthcaredispenser.data.model.profile.CreateProfileRequest
 import com.example.healthcaredispenser.data.model.profile.ProfileDto
 import com.example.healthcaredispenser.data.model.profile.ProfileItem
+import com.example.healthcaredispenser.data.model.profile.ProfileResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -40,4 +41,7 @@ class ProfileRepository(
             val res = withContext(Dispatchers.IO) { api.delete(id) }
             if (res.isSuccessful) Unit else error("Delete failed: ${res.code()}")
         }
+
+
+
 }
