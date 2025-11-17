@@ -69,7 +69,7 @@ fun RecordScreen(
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(30.dp))
 
             Text(
                 text = "섭취 기록",

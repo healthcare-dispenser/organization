@@ -7,23 +7,25 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
-import com.example.healthcaredispenser.R
 import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.components.BottomBar
 import com.example.healthcaredispenser.ui.intake.IntakeViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.healthcaredispenser.R // R import 확인 (EmptyView 이미지용)
+import androidx.compose.ui.res.painterResource // painterResource import 확인
 
 private val OutlineGray  = Color(0xFF6F7783)
 private val TextPrimary  = Color(0xFF1A1A1A)
@@ -68,28 +70,35 @@ fun IntakeHistoryScreen(
     ) { inner ->
         Column(
             modifier = Modifier
-                .padding(inner)               // 상하단 시스템/바텀바 패딩 반영
+                .padding(inner)
                 .fillMaxSize()
                 .padding(horizontal = 20.dp)
         ) {
-            // 뒤로가기
-            IconButton(onClick = { navController.popBackStack() }) {
-                Icon(
-                    painter = painterResource(R.drawable.arrow_back_2),
-                    contentDescription = "뒤로",
-                    tint = TextPrimary
-                )
-            }
+            Spacer(Modifier.height(16.dp)) // 상단 여백
 
-            // 제목
+            // ⬇️ === 수정된 부분: Row 삭제하고 세로 배치 === ⬇️
+
+            // 1. 뒤로가기 아이콘
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "뒤로",
+                tint = TextPrimary,
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable { navController.popBackStack() }
+            )
+
+            Spacer(Modifier.height(12.dp)) // 화살표와 제목 사이 세로 간격
+
+            // 2. 제목
             Text(
                 text = "복용 기록",
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp)
+                fontWeight = FontWeight.Bold
             )
+            // ⬆️ ========================================= ⬆️
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp)) // 제목과 리스트 사이 간격
 
             when {
                 loading -> Text("불러오는 중...", color = TextSecondary)
@@ -99,7 +108,6 @@ fun IntakeHistoryScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        // ✅ 바텀바(72dp) + 여유(16dp) = 88dp, 고정 패딩으로 충돌/오류 없이 처리
                         contentPadding = PaddingValues(
                             top = 8.dp,
                             bottom = 50.dp
