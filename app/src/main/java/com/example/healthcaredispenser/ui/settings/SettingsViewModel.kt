@@ -37,11 +37,13 @@ class SettingsViewModel(
     /**
      * CSV 파일 내보내기
      */
-    fun exportData(context: Context) {
+    fun exportData(context: Context, profileId: Long) {
         if (_state.value.loading) return
         viewModelScope.launch {
             _state.value = SettingsUiState(loading = true)
-            exportRepo.exportIntakeFeedback()
+
+            // ⬇️ exportRepo에 profileId 전달
+            exportRepo.exportIntakeFeedback(profileId)
                 .onSuccess { responseBody ->
                     try {
                         saveCsvFile(context, responseBody)

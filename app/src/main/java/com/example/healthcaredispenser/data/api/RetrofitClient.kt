@@ -1,7 +1,7 @@
 package com.example.healthcaredispenser.data.api
 
 import com.example.healthcaredispenser.data.network.AuthInterceptor
-import okhttp3.Interceptor // 👈 1. 이 import를 추가하세요
+import okhttp3.Interceptor // 👈 import 확인
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -9,47 +9,41 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
-    // ✅ EC2 Nginx 프록시: 80 → 8080, 끝에 반드시 /
-    private const val BASE_URL = "http://35.208.61.223/"
+    // ✅ IP 주소 확인!
+    private const val BASE_URL = "http://35.209.162.103/"
 
     private val logging by lazy {
         HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY // 개발 단계는 BODY
+            level = HttpLoggingInterceptor.Level.BODY
         }
     }
 
-    // ⬇️ === 2. 헤더를 관리하는 인터셉터 새로 추가 === ⬇️
-    // (이게 모든 요청을 검사해서 알맞은 Accept 헤더를 붙여줍니다)
+    // ⬇️ === 1. 헤더 관리 인터셉터 추가 (CSV 요청만 헤더 변경) === ⬇️
     private val acceptHeaderInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
 
-        // 요청 URL에 ".csv"가 포함되어 있는지 확인
-        if (originalRequest.url.toString().endsWith(".csv")) {
-            // CSV 요청: 'Accept' 헤더를 'text/csv'로 강제 설정
+        // ❌ 기존: .endsWith(".csv") -> 파라미터(?profileId=...) 때문에 실패함
+        // ✅ 수정: .contains(".csv") -> 주소 중간에 .csv가 있어도 인식함!
+        if (originalRequest.url.toString().contains(".csv")) {
             val newRequest = originalRequest.newBuilder()
-                .header("Accept", "text/csv") // .header()는 기존 것을 덮어씁니다.
+                .header("Accept", "text/csv")
                 .build()
             chain.proceed(newRequest)
         } else {
-            // CSV 아닌 모든 요청: 'Accept' 헤더를 'application/json'으로 강제 설정
             val newRequest = originalRequest.newBuilder()
-                .header("Accept", "application/json") // .header()는 기존 것을 덮어씁니다.
+                .header("Accept", "application/json")
                 .build()
             chain.proceed(newRequest)
         }
     }
-    // ⬆️ ======================================== ⬆️
-
+    // ⬆️ ==================================================== ⬆️
 
     private val okHttpClient by lazy {
         OkHttpClient.Builder()
-            // JWT 자동 부착 (이건 건드리지 않음)
             .addInterceptor(AuthInterceptor())
-
-            // ✅ 3. 새로 만든 헤더 인터셉터를 Auth *다음에* 추가
+            // ✅ 2. 여기에 인터셉터 추가
             .addInterceptor(acceptHeaderInterceptor)
-
-            .addInterceptor(logging) // 로깅은 맨 마지막이 좋음
+            .addInterceptor(logging)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)

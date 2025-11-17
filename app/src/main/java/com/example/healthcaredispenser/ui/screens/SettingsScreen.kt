@@ -86,7 +86,7 @@ fun SettingsScreen(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted: Boolean ->
             if (isGranted) {
-                settingsVm.exportData(ctx)
+                settingsVm.exportData(ctx, profileId)
             } else {
                 scope.launch {
                     snackbarHostState.showSnackbar("파일 저장 권한이 거부되었습니다.")
@@ -98,7 +98,7 @@ fun SettingsScreen(
     // 권한 체크 및 요청 함수
     fun checkAndRequestPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            settingsVm.exportData(ctx)
+            settingsVm.exportData(ctx, profileId)
             return
         }
         when {
@@ -106,7 +106,7 @@ fun SettingsScreen(
                 ctx,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
             ) == PackageManager.PERMISSION_GRANTED -> {
-                settingsVm.exportData(ctx)
+                settingsVm.exportData(ctx, profileId)
             }
             else -> {
                 requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)

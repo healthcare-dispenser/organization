@@ -13,9 +13,9 @@ class ExportRepository(
     /**
      * CSV 데이터를 서버로부터 다운로드합니다.
      */
-    suspend fun exportIntakeFeedback(): Result<ResponseBody> = runCatching {
+    suspend fun exportIntakeFeedback(profileId: Long): Result<ResponseBody> = runCatching {
         withContext(Dispatchers.IO) {
-            api.exportIntakeFeedback()
+            api.exportIntakeFeedback(profileId)
         }
     }
 }

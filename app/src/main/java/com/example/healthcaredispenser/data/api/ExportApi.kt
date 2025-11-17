@@ -2,6 +2,8 @@ package com.example.healthcaredispenser.data.api
 
 import okhttp3.ResponseBody
 import retrofit2.http.GET
+import retrofit2.http.Headers
+import retrofit2.http.Query
 import retrofit2.http.Streaming
 
 /**
@@ -15,8 +17,11 @@ interface ExportApi {
      * @return ResponseBody : 원시 파일 데이터를 받기 위해 ResponseBody를 사용합니다.
      */
     @Streaming // 파일 다운로드를 위해 스트리밍 어노테이션 사용
+    @Headers("Accept: text/csv")
     @GET("api/exports/intake-feedback.csv") // 백엔드에서 전달받은 경로
-    suspend fun exportIntakeFeedback(): ResponseBody
+    suspend fun exportIntakeFeedback(
+        @Query("profileId") profileId: Long // 👈 profileId 추가!
+    ): ResponseBody
 }
 
 /**
