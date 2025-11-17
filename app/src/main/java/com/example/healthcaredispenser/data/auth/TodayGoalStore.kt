@@ -16,7 +16,10 @@ object TodayGoalStore {
     private val fmt = DateTimeFormatter.BASIC_ISO_DATE // yyyyMMdd
     private fun todayId(): String = LocalDate.now().format(fmt)
 
-    private fun keys(profileId: Long): Pair<androidx.datastore.preferences.core.Preferences.Key<Int>, androidx.datastore.preferences.core.Preferences.Key<String>> {
+    private fun keys(profileId: Long): Pair<
+            androidx.datastore.preferences.core.Preferences.Key<Int>,
+            androidx.datastore.preferences.core.Preferences.Key<String>
+            > {
         val countKey = intPreferencesKey("goal_count_$profileId")
         val dateKey  = stringPreferencesKey("goal_date_$profileId")
         return countKey to dateKey
@@ -67,6 +70,15 @@ object TodayGoalStore {
         context.goalDataStore.edit {
             it[K_COUNT] = 0
             it[K_DATE] = todayId()
+        }
+    }
+
+    /** 🆕 프로필 삭제 시, 해당 프로필의 오늘의 목표 데이터 완전히 제거 */
+    suspend fun clearForProfile(context: Context, profileId: Long) {
+        val (K_COUNT, K_DATE) = keys(profileId)
+        context.goalDataStore.edit {
+            it.remove(K_COUNT)
+            it.remove(K_DATE)
         }
     }
 }

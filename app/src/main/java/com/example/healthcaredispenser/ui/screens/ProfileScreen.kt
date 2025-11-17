@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -30,9 +31,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.healthcaredispenser.data.model.profile.ProfileDto
+import com.example.healthcaredispenser.data.auth.TodayGoalStore
 import com.example.healthcaredispenser.navigation.Routes
 import com.example.healthcaredispenser.ui.profile.ProfileViewModel
 import com.example.healthcaredispenser.ui.theme.LoginGreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
@@ -43,6 +46,10 @@ fun ProfileScreen(
 
     // 삭제 확인 다이얼로그용 상태
     var confirmDeleteId by remember { mutableStateOf<Long?>(null) }
+
+    // 🆕 DataStore & 코루틴 스코프
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // 첫 진입 시 목록 로드
     LaunchedEffect(Unit) { vm.fetch() }
@@ -105,26 +112,18 @@ fun ProfileScreen(
                             .padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
                         verticalArrangement = Arrangement.spacedBy(20.dp)
-                        // 필요하면 행당 최대 개수 제한: maxItemsInEachRow = 3
                     ) {
                         ui.profiles.forEach { p ->
                             ProfileAvatarItem(
                                 profile = p,
-                                // ⬇️ === 여기가 유일한 수정 지점입니다! === ⬇️
                                 onClick = {
-                                    // ✅ 아바타 본체 터치
-                                    // ❌ 기존: navController.navigate(Routes.QRSCAN)
-
-                                    // ✅ 수정: QR 건너뛰고 홈으로 바로 이동
                                     val profileId = p.id
                                     if (profileId != null) {
-                                        // "home/{profileId}" 경로로 이동
                                         navController.navigate("${Routes.HOME}/$profileId") {
                                             launchSingleTop = true
                                         }
                                     }
                                 },
-                                // ⬆️ ====================================== ⬆️
                                 onDeleteClick = { id ->
                                     confirmDeleteId = id // 다이얼로그 띄우기
                                 }
@@ -173,7 +172,12 @@ fun ProfileScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        vm.delete(id)
+                        scope.launch {
+                            // 1) 해당 프로필의 오늘의 목표 데이터 삭제
+                            TodayGoalStore.clearForProfile(context, id)
+                            // 2) 서버/뷰모델에서 프로필 삭제
+                            vm.delete(id)
+                        }
                         confirmDeleteId = null
                     }
                 ) { Text("삭제") }
@@ -185,7 +189,7 @@ fun ProfileScreen(
     }
 }
 
-// ⬇️ === 여기는 원래 코드로 되돌립니다 (navController 없음) === ⬇️
+// 기존 아바타 UI는 그대로
 @Composable
 private fun ProfileAvatarItem(
     profile: ProfileDto,
